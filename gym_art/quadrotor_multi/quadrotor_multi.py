@@ -8,7 +8,7 @@ import gym
 from copy import deepcopy
 
 from gym_art.quadrotor_multi.quad_utils import perform_collision_between_drones, \
-    calculate_collision_matrix, calculate_drone_proximity_penalties
+    calculate_collision_matrix, calculate_drone_proximity_penalties, perform_downwash
 
 from gym_art.quadrotor_multi.quadrotor_single import GRAV, QuadrotorSingle
 from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSceneMulti
@@ -31,7 +31,7 @@ class QuadrotorEnvMulti(gym.Env):
                  collision_force=True, local_obs=-1, collision_hitbox_radius=2.0,
                  collision_falloff_radius=2.0, collision_smooth_max_penalty=10.0, use_replay_buffer=False,
                  vis_acc_arrows=False,
-                 viz_traces=25, viz_trace_nth_step=1):
+                 viz_traces=25, viz_trace_nth_step=1, use_downwash=True):
 
         super().__init__()
 
@@ -125,6 +125,8 @@ class QuadrotorEnvMulti(gym.Env):
                                         quads_formation=quads_formation, quads_formation_size=quads_formation_size)
         self.quads_formation_size = quads_formation_size
         self.goal_central = np.array([0., 0., 2.])
+
+        self.use_downwash = use_downwash
 
         # set render
         self.simulation_start_time = 0
@@ -370,6 +372,10 @@ class QuadrotorEnvMulti(gym.Env):
         ground_collisions = [1.0 if pos[2] < 0.25 else 0.0 for pos in self.pos]
 
         self.all_collisions = {'drone': np.sum(drone_col_matrix, axis=1), 'ground': ground_collisions}
+
+        if self.use_downwash:
+            envs_dynamics = [env.dynamics for env in self.envs]
+            perform_downwash(drones_dyn=envs_dynamics, dt=self.control_dt)
 
         # Applying random forces between drones
         if self.apply_collision_force:
