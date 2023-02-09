@@ -4,11 +4,12 @@ from gym_art.quadrotor_multi.octomap_creation import OctTree
 
 
 class MultiObstacles:
-    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), size=0.0, resolution=0.05):
+    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), size=0.0, resolution=0.05, obst_shape='cube'):
         self.num_obstacles = num_obstacles
         self.obstacles = []
         self.room_dims = room_dims
-        self.octree = OctTree(obstacle_size=1.0, room_dims=room_dims, resolution=resolution)
+        self.obst_shape = obst_shape
+        self.octree = OctTree(obstacle_size=1.0, room_dims=room_dims, resolution=resolution, obst_shape=obst_shape)
 
     def reset(self, obs=None, quads_pos=None, start_point=np.array([0., 0., 2.]), end_point=np.array([0., 0., 2.])):
         self.octree.reset()

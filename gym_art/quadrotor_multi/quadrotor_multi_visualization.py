@@ -202,8 +202,12 @@ class Quadrotor3DSceneMulti:
         for item in self.obstacles.octree.pos_arr:
             color = QUAD_COLOR[14]
             obst_height = self.room_dims[2]
-            obstacle_transform = r3d.transform_and_color(np.eye(4), color, r3d.cylinder(
-                radius=self.obstacles.octree.size / 2.0, height=obst_height, sections=64))
+            if self.obstacles.obst_shape == 'cylinder':
+                obstacle_transform = r3d.transform_and_color(np.eye(4), color, r3d.cylinder(
+                    radius=self.obstacles.octree.size / 2.0, height=obst_height, sections=64))
+            elif self.obstacles.obst_shape == 'cube':
+                obstacle_transform = r3d.transform_and_color(np.eye(4), color,
+                                                             r3d.box(self.obstacles.octree.size, self.obstacles.octree.size , obst_height))
 
             self.obstacle_transforms.append(obstacle_transform)
 
@@ -212,7 +216,10 @@ class Quadrotor3DSceneMulti:
 
         for i, g in enumerate(obstacles.octree.pos_arr):
             # self.obstacle_transforms[i].set_transform(r3d.translate(g.pos))
-            pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
+            if self.obstacles.obst_shape == 'cylinder':
+                pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
+            else:
+                pos_update = g
 
             self.obstacle_transforms[i].set_transform_and_color(r3d.translate(pos_update), (1.0, 0.0, 0.0, 0.1))
 

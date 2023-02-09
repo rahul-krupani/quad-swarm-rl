@@ -34,7 +34,8 @@ class QuadrotorEnvMulti(gym.Env):
                  collision_force=True, local_obs=-1, collision_hitbox_radius=2.0,
                  collision_falloff_radius=2.0, collision_smooth_max_penalty=10.0, use_replay_buffer=False,
                  vis_acc_arrows=False, viz_traces=25, viz_trace_nth_step=1,
-                 use_obstacles=False, num_obstacles=0, obstacle_size=0.0, octree_resolution=0.05, use_downwash=False,
+                 use_obstacles=False, num_obstacles=0, obstacle_size=0.0, octree_resolution=0.05,
+                 obst_shape='cube', use_downwash=False,
                  env_seed=None):
 
         super().__init__()
@@ -136,8 +137,9 @@ class QuadrotorEnvMulti(gym.Env):
             self.num_obstacles = num_obstacles
             self.obstacle_size = obstacle_size
             self.octree_resolution = octree_resolution
+            self.obst_shape = obst_shape
             self.obstacles = MultiObstacles(num_obstacles=self.num_obstacles, size=self.obstacle_size,
-                                            room_dims=self.room_dims, resolution=self.octree_resolution)
+                                            room_dims=self.room_dims, resolution=self.octree_resolution, obst_shape=obst_shape)
 
         # Aux variables for scenarios
         self.scenario = create_scenario(quads_mode=quads_mode, envs=self.envs, num_agents=self.num_agents,

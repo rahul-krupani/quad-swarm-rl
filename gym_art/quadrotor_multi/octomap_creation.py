@@ -1,12 +1,14 @@
 import numpy as np
 import math
 import octomap
+import random
 
 from gym_art.quadrotor_multi.quad_utils import EPS
 
 
 class OctTree:
-    def __init__(self, obstacle_size=1.0, room_dims=np.array([10, 10, 10]), resolution=0.05):
+    def __init__(self, obstacle_size=1.0, room_dims=np.array([10, 10, 10]), resolution=0.05, obst_shape='cube'):
+        self.start_points = None
         self.resolution = resolution
         self.octree = octomap.OcTree(self.resolution)
         self.room_dims = np.array(room_dims)
@@ -14,9 +16,13 @@ class OctTree:
         self.half_room_width = self.room_dims[1] / 2
         self.grid_size = obstacle_size
         self.size = obstacle_size
+        self.obst_shape = obst_shape
         self.start_range = np.zeros((2, 2))
         self.end_range = np.zeros((2, 2))
         self.init_box = np.array([[-2.0, -2.0, -0.5 * 2.0], [2.0, 2.0, 1.5 * 2.0]])
+        self.cell_centers = [
+            (i + (self.grid_size / 2) - self.half_room_length, -(j + (self.grid_size / 2) - self.half_room_width)) for i in
+            np.arange(0, self.room_dims[0], self.grid_size) for j in np.arange(0, self.room_dims[1], self.grid_size)]
         self.pos_arr = None
 
     def reset(self):
@@ -128,8 +134,13 @@ class OctTree:
                 for y in np.arange(xy_min[1], xy_max[1] + EPS, self.resolution):
                     # self.resolution: reason same as above, the difference is this time if for floor and ceiling
                     for z in np.arange(-self.resolution, self.room_dims[2] + self.resolution, self.resolution):
-                        if np.linalg.norm(np.asarray([x, y]) - item[:2]) <= self.size / 2:
+                        if self.obst_shape == 'cylinder':
+                            if np.linalg.norm(np.asarray([x, y]) - item[:2]) <= self.size / 2:
+                                self.octree.updateNode([x, y, z], True)
+                        elif self.obst_shape == 'cube':
                             self.octree.updateNode([x, y, z], True)
+                        else:
+                            raise NotImplementedError(f'{self.obst_shape} not supported!')
 
     def generate_sdf(self):
         # max_dist: clamps distances at maxdist
