@@ -415,18 +415,45 @@ def perform_collision_between_drones(dyn1, dyn2, col_coeff=1.0):
     dyn2.omega -= new_omega * col_coeff
 
 
-def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0):
+def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0, obst_shape="cube"):
     # Vel noise has two different random components,
     # One that preserves momentum in opposite directions
     # Second that does not preserve momentum
-    vnew, collision_norm = compute_col_norm_and_new_vel_obst(drone_dyn, obstacle_pos)
-    vel_change = -vnew * collision_norm
+    if obst_shape == "cube":
+        shift_pos = drone_dyn.pos - obstacle_pos
+        abs_shift_pos = np.abs(shift_pos)
+        x_list = [abs_shift_pos[0] >= abs_shift_pos[1] and shift_pos[0] >= 0,
+                  abs_shift_pos[0] >= abs_shift_pos[1] and shift_pos[0] < 0]
+        y_list = [abs_shift_pos[0] < abs_shift_pos[1] and shift_pos[1] >= 0,
+                  abs_shift_pos[0] < abs_shift_pos[1] and shift_pos[1] < 0]
+
+        direction = np.random.uniform(low=-1.0, high=1.0, size=(3,))
+        direction[2] = np.random.uniform(low=-1.0, high=-0.5)
+        if drone_dyn.pos[2] == 0.0:
+            direction[2] = np.random.uniform(low=-0.01, high=0.01)
+
+        if x_list[0]:
+            direction[0] = np.random.uniform(low=0.1, high=1.0)
+        elif x_list[1]:
+            direction[0] = np.random.uniform(low=-1.0, high=-0.1)
+
+        if y_list[0]:
+            direction[1] = np.random.uniform(low=0.1, high=1.0)
+        elif y_list[1]:
+            direction[1] = np.random.uniform(low=-1.0, high=-0.1)
+
+        vel_change = direction
+    elif obst_shape=="cylinder":
+        vnew, collision_norm = compute_col_norm_and_new_vel_obst(drone_dyn, obstacle_pos)
+        vel_change = -vnew * collision_norm
 
     dyn_vel_shift = vel_change
     for _ in range(3):
         cons_rand_val = np.random.normal(loc=0, scale=0.8, size=3)
         vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.15, size=3)
         dyn_vel_shift = vel_change + vel_noise
+        if obst_shape == "cube":
+            break
         if np.dot(drone_dyn.vel + dyn_vel_shift, collision_norm) > 0:
             break
 
