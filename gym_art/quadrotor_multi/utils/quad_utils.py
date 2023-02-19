@@ -3,10 +3,24 @@ import numpy.random as nr
 from numba import njit
 from numpy.linalg import norm
 from numpy import cos, sin
-from scipy import spatial
 from copy import deepcopy
 
 EPS = 1e-5
+QUAD_RADIUS = 0.05
+
+SELF_OBS_REPR = {
+    'xyz_vxyz_R_omega': 18,
+    'xyz_vxyz_R_omega_wall': 24,
+    'xyz_vxyz_R_omega_floor_ceiling': 20,
+}
+
+NEIGHBOR_OBS = {
+    'none': 0,
+    'pos_vel': 6,
+    'pos_vel_goals': 9,
+    'pos_vel_goals_ndist_gdist': 11,
+    'octomap': 0
+}
 
 QUAD_COLOR = (
     (1.0, 0.0, 0.0),  # red
@@ -25,6 +39,7 @@ QUAD_COLOR = (
     (0.8, 0.8, 0.8),  # lightgrey
     (1.0, 0.0, 1.0),  # Violet
 )
+
 
 # dict pretty printing
 def print_dic(dic, indent=""):
@@ -232,11 +247,19 @@ def dict_update_existing(dic, dic_upd):
             dic[key] = dic_upd[key]
 
 
+@njit
 def spherical_coordinate(x, y):
     return [cos(x) * cos(y), sin(x) * cos(y), sin(y)]
 
 
-def points_in_sphere(n, x):
+@njit
+def generate_points(n=3):
+    if n < 3:
+        # print("The number of goals can not smaller than 3, The system has cast it to 3")
+        n = 3
+
+    x = 0.1 + 1.2 * n
+
     pts = []
     start = (-1. + 1. / (n - 1.))
     increment = (2. - 2. / (n - 1.)) / (n - 1.)
@@ -246,16 +269,11 @@ def points_in_sphere(n, x):
         pts.append(spherical_coordinate(
             s * x, pi / 2. * np.sign(s) * (1. - np.sqrt(1. - abs(s)))
         ))
+
     return pts
 
 
-def generate_points(n=3):
-    if n < 3:
-        # print("The number of goals can not smaller than 3, The system has cast it to 3")
-        n = 3
-    return points_in_sphere(n, 0.1 + 1.2 * n)
-
-
+@njit
 def get_sphere_radius(num, dist):
     A = 1.75388487222762
     B = 0.860487305801679
@@ -266,12 +284,14 @@ def get_sphere_radius(num, dist):
     return radius
 
 
+@njit
 def get_circle_radius(num, dist):
     theta = 2 * np.pi / num
     radius = (0.5 * dist) / np.sin(theta / 2)
     return radius
 
 
+@njit
 def get_grid_dim_number(num):
     assert num > 0
     sqrt_goal_num = np.sqrt(num)
@@ -287,32 +307,7 @@ def get_grid_dim_number(num):
     return dim_1, dim_2
 
 
-def calculate_collision_matrix(positions, arm, hitbox_radius):
-    dist = spatial.distance_matrix(x=positions, y=positions)
-    collision_matrix = (dist < hitbox_radius * arm).astype(np.float32)
-    np.fill_diagonal(collision_matrix, 0.0)
-
-    # get upper triangular matrix and check if they have collisions and append to all collisions
-    upt = np.triu(collision_matrix)
-    up_w1 = np.where(upt >= 1)
-    all_collisions = []
-    for i, val in enumerate(up_w1[0]):
-        all_collisions.append((up_w1[0][i], up_w1[1][i]))
-
-    return collision_matrix, all_collisions, dist
-
-
-def calculate_drone_proximity_penalties(distance_matrix, arm, dt, penalty_fall_off, max_penalty, num_agents):
-    if not penalty_fall_off:
-        # smooth penalties is disabled, so noop
-        return np.zeros(num_agents)
-    penalties = (-max_penalty / (penalty_fall_off * arm)) * distance_matrix + max_penalty
-    np.fill_diagonal(penalties, 0.0)
-    penalties = np.maximum(penalties, 0.0)
-    penalties = np.sum(penalties, axis=0)
-
-    return dt * penalties  # actual penalties per tick to be added to the overall reward
-
+@njit
 def calculate_obst_drone_proximity_penalties(distances, arm, dt, penalty_fall_off, max_penalty, num_agents):
     if not penalty_fall_off:
         # smooth penalties is disabled
@@ -325,22 +320,24 @@ def calculate_obst_drone_proximity_penalties(distances, arm, dt, penalty_fall_of
     return dt * penalties
 
 
-def compute_col_norm_and_new_velocities(dyn1, dyn2):
+@njit
+def compute_col_norm_and_new_velocities(dyn1_pos, dyn2_pos, dyn1_vel, dyn2_vel):
     # Ge the collision normal, i.e difference in position
-    collision_norm = dyn1.pos - dyn2.pos
+    collision_norm = dyn1_pos - dyn2_pos
     coll_norm_mag = np.linalg.norm(collision_norm)
-    collision_norm = collision_norm / (coll_norm_mag + 0.00001 if coll_norm_mag == 0.0 else coll_norm_mag)
+    collision_norm = collision_norm / (coll_norm_mag + EPS if coll_norm_mag == 0.0 else coll_norm_mag)
 
     # Get the components of the velocity vectors which are parallel to the collision.
     # The perpendicular component remains the same.
-    v1new = np.dot(dyn1.vel, collision_norm)
-    v2new = np.dot(dyn2.vel, collision_norm)
+    v1new = np.dot(dyn1_vel, collision_norm)
+    v2new = np.dot(dyn2_vel, collision_norm)
 
     return v1new, v2new, collision_norm
 
 
-def compute_col_norm_and_new_vel_obst(dyn, obstacle_pos):
-    collision_norm = dyn.pos - obstacle_pos
+@njit
+def compute_col_norm_and_new_vel_obst(quad_pos, quad_vel, obstacle_pos):
+    collision_norm = quad_pos - obstacle_pos
     # difference in z position is 0, given obstacle height is same as room height
     collision_norm[2] = 0.0
     coll_norm_mag = np.linalg.norm(collision_norm)
@@ -348,12 +345,13 @@ def compute_col_norm_and_new_vel_obst(dyn, obstacle_pos):
 
     # Get the components of the velocity vectors which are parallel to the collision.
     # The perpendicular component remains the same.
-    vnew = np.dot(dyn.vel, collision_norm)
+    vnew = np.dot(quad_vel, collision_norm)
 
     return vnew, collision_norm
 
-def compute_new_vel(max_vel_magn, vel, vel_shift, coeff):
-    vel_decay_ratio = np.random.uniform(low=0.2, high=0.8)
+
+@njit
+def compute_new_vel(max_vel_magn, vel, vel_shift, coeff, vel_decay_ratio):
     vel_new = vel + vel_shift
     vel_new_mag = np.linalg.norm(vel_new)
     vel_new_dir = vel_new / (vel_new_mag + EPS if vel_new_mag == 0.0 else vel_new_mag)
@@ -363,6 +361,7 @@ def compute_new_vel(max_vel_magn, vel, vel_shift, coeff):
     vel_shift = vel_new - vel
     vel += vel_shift * coeff
     return vel
+
 
 def compute_new_omega():
     # Random forces for omega
@@ -377,13 +376,15 @@ def compute_new_omega():
 
     return omega
 
+
 # This function is to change the velocities after a collision happens between two bodies
 def perform_collision_between_drones(dyn1, dyn2, col_coeff=1.0):
     # Solve for the new velocities using the elastic collision equations.
     # vel noise has two different random components,
     # One that preserves momentum in opposite directions
     # Second that does not preserve momentum
-    v1new, v2new, collision_norm = compute_col_norm_and_new_velocities(dyn1, dyn2)
+    v1new, v2new, collision_norm = compute_col_norm_and_new_velocities(
+        dyn1_pos=dyn1.pos, dyn2_pos=dyn2.pos, dyn1_vel=dyn1.vel, dyn2_vel=dyn2.vel)
     vel_change = (v2new - v1new) * collision_norm
     dyn1_vel_shift = vel_change
     dyn2_vel_shift = -vel_change
@@ -405,9 +406,12 @@ def perform_collision_between_drones(dyn1, dyn2, col_coeff=1.0):
 
     # Get new vel
     max_vel_magn = max(np.linalg.norm(dyn1.vel), np.linalg.norm(dyn2.vel))
-    dyn1.vel=compute_new_vel(max_vel_magn=max_vel_magn, vel=dyn1.vel, vel_shift=dyn1_vel_shift, coeff=col_coeff)
-    dyn2.vel=compute_new_vel(max_vel_magn=max_vel_magn, vel=dyn2.vel, vel_shift=dyn2_vel_shift, coeff=col_coeff)
 
+    vel_decay_ratio = np.random.uniform(low=0.2, high=0.8, size=2)
+    dyn1.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=dyn1.vel, vel_shift=dyn1_vel_shift, coeff=col_coeff,
+                               vel_decay_ratio=vel_decay_ratio[0])
+    dyn2.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=dyn2.vel, vel_shift=dyn2_vel_shift, coeff=col_coeff,
+                               vel_decay_ratio=vel_decay_ratio[1])
 
     # Get new omega
     new_omega = compute_new_omega()
@@ -415,7 +419,7 @@ def perform_collision_between_drones(dyn1, dyn2, col_coeff=1.0):
     dyn2.omega -= new_omega * col_coeff
 
 
-def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0, obst_shape="cube"):
+def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0, obst_shape="cube", obstacle_size=1.0):
     # Vel noise has two different random components,
     # One that preserves momentum in opposite directions
     # Second that does not preserve momentum
@@ -458,7 +462,13 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0, obst
             break
 
     max_vel_magn = np.linalg.norm(drone_dyn.vel)
-    drone_dyn.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=drone_dyn.vel, vel_shift=dyn_vel_shift, coeff=col_coeff)
+    if np.linalg.norm(drone_dyn.pos - obstacle_pos) <= obstacle_size:
+        drone_dyn.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=drone_dyn.vel, vel_shift=dyn_vel_shift,
+                                        coeff=col_coeff, vel_decay_ratio=1.0)
+    else:
+        vel_decay_ratio = np.random.uniform(low=0.2, high=0.8)
+        drone_dyn.vel = compute_new_vel(max_vel_magn=max_vel_magn, vel=drone_dyn.vel, vel_shift=dyn_vel_shift,
+                                        coeff=col_coeff, vel_decay_ratio=vel_decay_ratio)
 
     # Random forces for omega
     new_omega = compute_new_omega()

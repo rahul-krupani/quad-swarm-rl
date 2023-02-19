@@ -3,21 +3,20 @@ import math
 import numpy as np
 
 from gym_art.quadrotor_multi.octomap_creation import OctTree
+from gym_art.quadrotor_multi.utils.quad_utils import EPS
 
 
 class MultiObstacles:
-    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), size=0.0, resolution=0.1, obst_shape='cube'):
+    def __init__(self, num_obstacles=0, room_dims=np.array([10, 10, 10]), resolution=0.05, obstacle_size=1.0, obst_shape='cube'):
         self.num_obstacles = num_obstacles
-        self.obstacles = []
         self.room_dims = np.array(room_dims)
-        self.obst_shape = obst_shape
         self.resolution = resolution
+        self.obst_shape = obst_shape
         self.octree = OctTree(obstacle_size=1.0, room_dims=room_dims, resolution=resolution)
-        self.grid_size = size
-        self.size = size
+        self.grid_size = obstacle_size
+        self.size = obstacle_size
         self.half_room_length = self.room_dims[0] / 2
         self.half_room_width = self.room_dims[1] / 2
-        self.obst_shape = obst_shape
         self.start_range = np.zeros((2, 2))
         self.end_range = np.zeros((2, 2))
         self.init_box = np.array([[-2.0, -2.0, -0.5 * 2.0], [2.0, 2.0, 1.5 * 2.0]])
@@ -32,33 +31,50 @@ class MultiObstacles:
         self.octree.reset()
         self.generate_obstacles(num_obstacles=self.num_obstacles, start_point=start_point, end_point=end_point)
 
-        obst_obs = []
-
-        for quad in quads_pos:
-            obst_obs.append(self.octree.get_surround(quad))
-
-        obs = np.concatenate((obs, obst_obs), axis=1)
-
+        obs = self.concate_obst_obs(quads_pos=quads_pos, obs=obs)
         return obs
 
     def step(self, obs=None, quads_pos=None):
+        obs = self.concate_obst_obs(quads_pos=quads_pos, obs=obs)
+        return obs
+
+    def concate_obst_obs(self, quads_pos, obs):
         obst_obs = []
 
         for quad in quads_pos:
-            obst_obs.append(self.octree.get_surround(quad))
+            surround_obs = self.octree.get_surround(quad)
+            approx_part = np.random.uniform(low=-1.0 * self.resolution, high=0.0, size=surround_obs.shape)
 
+            surround_obs += approx_part
+            surround_obs = np.maximum(surround_obs, 0.0)
+            obst_obs.append(surround_obs)
+
+        obst_obs = np.array(obst_obs)
+
+        # Extract closest obst
+        self.extract_closest_obst_dist(obst_obs=obst_obs)
+
+        # Add noise to obst_obs
+        noise_part = np.random.normal(loc=0, scale=0.01, size=obst_obs.shape)
+        obst_obs += noise_part
+
+        obst_obs = np.maximum(obst_obs, 0.0)
         obs = np.concatenate((obs, obst_obs), axis=1)
 
         return obs
 
-    def collision_detection(self, pos_quads=None):
-        drone_collision = []
+    def extract_closest_obst_dist(self, obst_obs):
+        self.closest_obst_dist = []
+        for item in obst_obs:
+            tmp_item = item.flatten()
+            center_idx = int(len(tmp_item) - 1 / 2)
+            center_dist = tmp_item[center_idx]
+            self.closest_obst_dist.append(center_dist)
 
-        for i, quad in enumerate(pos_quads):
-            curr = self.octree.sdf_dist(quad)
-            if curr < 0.1 + 1e-5:
-                drone_collision.append(i)
+        self.closest_obst_dist = np.array(self.closest_obst_dist)
 
+    def collision_detection(self):
+        drone_collision = np.where(self.closest_obst_dist < 0.06 + EPS)[0]
         return drone_collision
 
     def closest_obstacle(self, pos):
@@ -103,7 +119,10 @@ class MultiObstacles:
         rot_pos_y = np.clip(rot_pos_y, a_min=-self.half_room_width + self.grid_size,
                             a_max=self.half_room_width - self.grid_size)
 
-        pos_xy = np.array([rot_pos_x, rot_pos_y])
+        if self.resolution >= 0.1:
+            pos_xy = np.around([rot_pos_x, rot_pos_y], decimals=1)
+        else:
+            raise NotImplementedError(f'Current obstacle resolution: {self.resolution} is not supported!')
 
         collide_start = self.check_pos(pos_xy, self.start_range)
         collide_end = self.check_pos(pos_xy, self.end_range)
@@ -111,7 +130,8 @@ class MultiObstacles:
 
         return pos_xy, collide_flag
 
-    def y_gaussian_generation(self, regen_id=0):
+    @staticmethod
+    def y_gaussian_generation(regen_id=0):
         if regen_id < 3:
             return None
 
@@ -120,22 +140,23 @@ class MultiObstacles:
         y_gaussian_scale = np.random.uniform(low=y_low, high=y_high)
         return y_gaussian_scale
 
-    def get_pos_no_overlap(self, pos_item, pos_arr, obst_id):
+    def get_pos_no_overlap(self, pos_item, pos_arr, min_gap=0.2):
         # In this function, we assume the shape of all obstacles is cube
         # But even if we have this assumption, we can still roughly use it for shapes like cylinder
-        if pos_arr.shape[1] == 0:
-            return pos_item, False
+        if len(pos_arr) == 0:
+            return False
 
         overlap_flag = False
         for j in range(len(pos_arr)):
-            if np.linalg.norm(pos_item - pos_arr[j][:2]) < 1.5 * self.size:
+            # TODO: This function only supports for cylinder
+            if np.linalg.norm(pos_item[:2] - pos_arr[j][:2]) < self.size + min_gap:
                 overlap_flag = True
                 break
-        return pos_item, overlap_flag
+        return overlap_flag
 
     def generate_obstacles(self, num_obstacles=0, start_point=np.array([-3.0, -2.0, 2.0]),
                            end_point=np.array([3.0, 2.0, 2.0])):
-        self.pos_arr = np.array([[]])
+        self.pos_arr = []
         self.start_range = np.array([start_point[:2] + self.init_box[0][:2], start_point[:2] + self.init_box[1][:2]])
         self.end_range = np.array([end_point[:2] + self.init_box[0][:2], end_point[:2] + self.init_box[1][:2]])
         pos_z = 0.5 * self.room_dims[2]
@@ -144,37 +165,72 @@ class MultiObstacles:
                 y_gaussian_scale = self.y_gaussian_generation(regen_id=regen_id)
                 pos_xy, collide_flag = self.gaussian_pos(y_gaussian_scale=y_gaussian_scale,
                                                          goal_start_point=start_point, goal_end_point=end_point)
-                pos_item = np.array([pos_xy[0], pos_xy[1]])
-                final_pos_item, overlap_flag = pos_item, False
-                # self.get_pos_no_overlap(pos_item=pos_item, pos_arr=self.pos_arr, obst_id=i)
+                pos_item = np.array([pos_xy[0], pos_xy[1], pos_z])
+                overlap_flag = self.get_pos_no_overlap(pos_item=pos_item, pos_arr=self.pos_arr)
                 if collide_flag is False and overlap_flag is False:
-                    if self.pos_arr.shape[1] == 0:
-                        self.pos_arr = np.array([np.append(np.array(final_pos_item), pos_z)])
-                        break
-                    self.pos_arr = np.append(self.pos_arr, np.array([np.append(np.array(final_pos_item), pos_z)]),
-                                             axis=0)
+                    self.pos_arr.append(pos_item)
                     break
 
+        self.pos_arr = np.around(self.pos_arr, decimals=1)
         self.mark_octree()
         self.octree.generate_sdf()
 
         return self.pos_arr
 
     def mark_octree(self):
+        self.mark_obstacles()
+        self.mark_walls()
+
+    def mark_obstacles(self):
         range_shape = 0.5 * self.size
+        # Mark obstacles
         for item in self.pos_arr:
             # Add self.resolution: when drones hit the wall, they can still get proper surrounding value
             xy_min = np.maximum(item[:2] - range_shape, -0.5 * self.room_dims[:2] - self.resolution)
             xy_max = np.minimum(item[:2] + range_shape, 0.5 * self.room_dims[:2] + self.resolution)
 
-            for x in np.arange(xy_min[0], xy_max[0], self.resolution):
-                for y in np.arange(xy_min[1], xy_max[1], self.resolution):
-                    # self.resolution: reason same as above, the difference is this time if for floor and ceiling
-                    for z in np.arange(-self.resolution, self.room_dims[2] + self.resolution, self.resolution):
-                        if self.obst_shape == 'cylinder':
-                            if np.linalg.norm(np.asarray([x, y]) - item[:2]) <= self.size / 2:
-                                self.octree.add_node([x, y, z])
-                        elif self.obst_shape == 'cube':
+            range_x = np.arange(xy_min[0], xy_max[0], self.resolution)
+            range_x = np.around(range_x, decimals=1)
+
+            range_y = np.arange(xy_min[1], xy_max[1], self.resolution)
+            range_y = np.around(range_y, decimals=1)
+
+            range_z = np.arange(0, self.room_dims[2] + self.resolution, self.resolution)
+            range_z = np.around(range_z, decimals=1)
+
+            if self.obst_shape == 'cube':
+                for x in range_x:
+                    for y in range_y:
+                        for z in range_z:
                             self.octree.add_node([x, y, z])
-                        else:
-                            raise NotImplementedError(f'{self.obst_shape} not supported!')
+            elif self.obst_shape == 'cylinder':
+                for x in range_x:
+                    for y in range_y:
+                        if np.linalg.norm(np.array([x, y]) - item[:2]) <= self.size / 2:
+                            for z in range_z:
+                                self.octree.add_node([x, y, z])
+            else:
+                raise NotImplementedError(f'{self.obst_shape} is not supported!')
+
+    def mark_walls(self):
+        bottom_left = np.array([-0.5 * self.room_dims[0] - self.resolution, -0.5 * self.room_dims[1] - self.resolution, 0.0])
+        upper_right = np.array([0.5 * self.room_dims[0], 0.5 * self.room_dims[1], self.room_dims[2]])
+
+        range_x = np.arange(bottom_left[0] + self.resolution, upper_right[0], self.resolution)
+        range_x = np.around(range_x, decimals=1)
+
+        range_y = np.arange(bottom_left[1], upper_right[1] + self.resolution, self.resolution)
+        range_y = np.around(range_y, decimals=1)
+
+        range_z = np.arange(0, self.room_dims[2] + self.resolution, self.resolution)
+        range_z = np.around(range_z, decimals=1)
+
+        for x in [bottom_left[0], upper_right[0]]:
+            for y in range_y:
+                for z in range_z:
+                    self.octree.add_node([x, y, z])
+
+        for y in [bottom_left[1], upper_right[1]]:
+            for x in range_x:
+                for z in range_z:
+                    self.octree.add_node([x, y, z])

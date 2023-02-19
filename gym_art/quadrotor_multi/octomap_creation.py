@@ -3,7 +3,7 @@ import math
 import octomap
 import random
 
-from gym_art.quadrotor_multi.quad_utils import EPS
+from gym_art.quadrotor_multi.utils.quad_utils import EPS
 
 
 class OctTree:
@@ -12,12 +12,20 @@ class OctTree:
         self.resolution = resolution
         self.octree = octomap.OcTree(self.resolution)
         self.room_dims = np.array(room_dims)
+        self.half_room_length = self.room_dims[0] / 2
+        self.half_room_width = self.room_dims[1] / 2
+        self.grid_size = obstacle_size
+        self.size = obstacle_size
+        self.obst_shape = obst_shape
+        self.start_range = np.zeros((2, 2))
+        self.end_range = np.zeros((2, 2))
+        self.init_box = np.array([[-0.5, -0.5, -0.5 * 2.0], [0.5, 0.5, 1.5 * 2.0]])
+        self.pos_arr = None
 
     def reset(self):
         del self.octree
         self.octree = octomap.OcTree(self.resolution)
         return
-
     def add_node(self, pos):
         self.octree.updateNode(pos, True)
 
