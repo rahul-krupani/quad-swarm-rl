@@ -127,7 +127,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.collision_obst_falloff_radius = collision_obst_falloff_radius
             self.octree_resolution = octree_resolution
             self.obst_shape = obst_shape
-            self.obstacles = MultiObstacles(num_obstacles=self.num_obstacles, size=self.obstacle_size,
+            self.obstacles = MultiObstacles(num_obstacles=self.num_obstacles, obstacle_size=self.obstacle_size,
                                             room_dims=self.room_dims, resolution=self.octree_resolution, obst_shape=obst_shape)
 
         # Aux variables for scenarios
