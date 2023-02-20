@@ -160,7 +160,7 @@ class QuadMultiEncoder(Encoder):
                     fc_layer(self.neighbor_hidden_size, self.neighbor_hidden_size, spec_norm=self.use_spectral_norm),
                     nonlinearity(cfg),
                 )
-                neighbor_encoder_out_size = calc_num_elements(self.obstacle_encoder, (self.obstacle_obs_dim,))
+                neighbor_encoder_out_size = calc_num_elements(self.neighbor_encoder, (self.neighbor_obs_dim,))
             elif neighbor_encoder_type == 'mean_embed':
                 self.neighbor_encoder = QuadNeighborhoodEncoderDeepsets(cfg, self.neighbor_obs_dim,
                                                                         self.neighbor_hidden_size,
@@ -227,12 +227,13 @@ class QuadMultiEncoder(Encoder):
         # relative xyz and vxyz for the entire minibatch (batch dimension is batch_size * num_neighbors)
         all_neighbor_obs_size = self.neighbor_obs_dim * self.num_use_neighbor_obs
         if self.num_use_neighbor_obs > 0 and self.neighbor_encoder:
-            neighborhood_embedding = self.neighbor_encoder(obs_self, obs, all_neighbor_obs_size, batch_size)
+            obs_neighbors = obs[:, self.self_obs_dim:self.self_obs_dim+self.neighbor_obs_dim]
+            neighborhood_embedding = self.neighbor_encoder(obs_neighbors)
             embeddings = torch.cat((embeddings, neighborhood_embedding), dim=1)
 
         # if self.obstacle_mode != 'no_obstacles':
         if self.use_obstacles:
-            obs_obstacles = obs[:, self.self_obs_dim + all_neighbor_obs_size:]
+            obs_obstacles = obs[:, self.self_obs_dim + self.neighbor_obs_dim:]
             obstacle_embeds = self.obstacle_encoder(obs_obstacles)
             embeddings = torch.cat((embeddings, obstacle_embeds), dim=1)
 

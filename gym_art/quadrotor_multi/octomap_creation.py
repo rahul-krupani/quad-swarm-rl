@@ -30,7 +30,8 @@ class OctTree:
         self.octree.updateNode(pos, True)
 
     def remove_node(self, pos):
-        self.octree.updateNode(pos, False)
+        self.octree.deleteNode(pos)
+        #self.octree.updateNode(pos, False)
 
     def update_sdf(self):
         self.octree.dynamicEDT_update(True)
@@ -56,6 +57,16 @@ class OctTree:
         for x in np.arange(p[0] - self.resolution, p[0] + self.resolution + EPS, self.resolution):
             for y in np.arange(p[1] - self.resolution, p[1] + self.resolution + EPS, self.resolution):
                 state.append(self.sdf_dist(np.array([x, y, p[2]])))
+
+        state = np.array(state)
+        return state
+
+    def get_surround_z(self, p):
+        state = []
+        for x in np.arange(p[0] - self.resolution, p[0] + self.resolution + EPS, self.resolution):
+            for y in np.arange(p[1] - self.resolution, p[1] + self.resolution + EPS, self.resolution):
+                for z in np.arange(p[2] - self.resolution, p[2] + self.resolution + EPS, self.resolution):
+                    state.append(self.sdf_dist(np.array([x, y, z])))
 
         state = np.array(state)
         return state

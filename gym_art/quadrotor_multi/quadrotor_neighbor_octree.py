@@ -35,7 +35,7 @@ class NeighborOctree:
             self.octree.add_node(pos)
             self.locations.append(pos)
 
-        self.update_sdf()
+        self.octree.update_sdf()
 
         neighbor_obs = []
 
@@ -49,7 +49,7 @@ class NeighborOctree:
     def get_state(self, pos):
 
         self.octree.remove_node(pos)
-        obs = self.octree.get_surround(pos)
+        obs = self.octree.get_surround_z(pos)
         self.octree.add_node(pos)
 
         return obs
