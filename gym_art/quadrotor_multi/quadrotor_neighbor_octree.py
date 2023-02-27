@@ -28,13 +28,3 @@ class NeighborObs:
         obs = np.concatenate((obs, neighbor_obs), axis=1)
 
         return obs
-
-    def collision_detection(self, pos_quads=None):
-        drone_collision = []
-
-        for i, quad in enumerate(pos_quads):
-            curr = self.octreebase.sdf_dist(quad)
-            if curr < 0.1 + 1e-5:
-                drone_collision.append(i)
-
-        return drone_collision

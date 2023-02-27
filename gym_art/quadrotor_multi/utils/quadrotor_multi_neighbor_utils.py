@@ -31,18 +31,7 @@ def calculate_nei_dist_matrix(pos, index):
                 dist_matrix[index][index] = 100.0
                 mins.append(min(dist_matrix[index]))
 
-    return mins
-
-
-    # tt_mins = []
-    # for i in range(27):
-    #     dist_matrix = spatial.distance_matrix(x=pos, y=pos)
-    #     np.fill_diagonal(dist_matrix, 1000)
-    #     tt_mins.append(min(dist_matrix[0]))
-    #
-    # tt_mins = np.array(tt_mins)
     return np.array(mins)
-    # return mins
 
 def calculate_neighbor_collision_matrix(positions, hit_box_size):
     dist_matrix = spatial.distance_matrix(x=positions, y=positions)

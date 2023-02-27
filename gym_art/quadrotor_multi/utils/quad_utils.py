@@ -19,7 +19,6 @@ NEIGHBOR_OBS = {
     'pos_vel': 6,
     'pos_vel_goals': 9,
     'pos_vel_goals_ndist_gdist': 11,
-    'distance_matrix': 0
 }
 
 QUAD_COLOR = (
@@ -363,15 +362,16 @@ def compute_new_vel(max_vel_magn, vel, vel_shift, coeff, vel_decay_ratio):
     return vel
 
 
+@njit
 def compute_new_omega():
     # Random forces for omega
     # This will amount to max 3.5 revolutions per second
     omega_max = 20 * np.pi
-    omega = np.random.uniform(low=-1, high=1, size=(3,))
+    omega = np.random.uniform(-1.0, 1.0, size=3)
     omega_mag = np.linalg.norm(omega)
 
     omega_dir = omega / (omega_mag + EPS if omega_mag == 0.0 else omega_mag)
-    omega_mag = np.random.uniform(low=omega_max / 2, high=omega_max)
+    omega_mag = np.random.uniform(omega_max / 2, omega_max)
     omega = omega_dir * omega_mag
 
     return omega
@@ -419,45 +419,19 @@ def perform_collision_between_drones(dyn1, dyn2, col_coeff=1.0):
     dyn2.omega -= new_omega * col_coeff
 
 
-def perform_collision_with_obstacle(drone_dyn, obstacle_pos, col_coeff=1.0, obst_shape="cube", obstacle_size=1.0):
+def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size, col_coeff=1.0):
     # Vel noise has two different random components,
     # One that preserves momentum in opposite directions
     # Second that does not preserve momentum
-    if obst_shape == "cube":
-        shift_pos = drone_dyn.pos - obstacle_pos
-        abs_shift_pos = np.abs(shift_pos)
-        x_list = [abs_shift_pos[0] >= abs_shift_pos[1] and shift_pos[0] >= 0,
-                  abs_shift_pos[0] >= abs_shift_pos[1] and shift_pos[0] < 0]
-        y_list = [abs_shift_pos[0] < abs_shift_pos[1] and shift_pos[1] >= 0,
-                  abs_shift_pos[0] < abs_shift_pos[1] and shift_pos[1] < 0]
-
-        direction = np.random.uniform(low=-1.0, high=1.0, size=(3,))
-        direction[2] = np.random.uniform(low=-1.0, high=-0.5)
-        if drone_dyn.pos[2] == 0.0:
-            direction[2] = np.random.uniform(low=-0.01, high=0.01)
-
-        if x_list[0]:
-            direction[0] = np.random.uniform(low=0.1, high=1.0)
-        elif x_list[1]:
-            direction[0] = np.random.uniform(low=-1.0, high=-0.1)
-
-        if y_list[0]:
-            direction[1] = np.random.uniform(low=0.1, high=1.0)
-        elif y_list[1]:
-            direction[1] = np.random.uniform(low=-1.0, high=-0.1)
-
-        vel_change = direction
-    elif obst_shape=="cylinder":
-        vnew, collision_norm = compute_col_norm_and_new_vel_obst(drone_dyn, obstacle_pos)
-        vel_change = -vnew * collision_norm
+    vnew, collision_norm = compute_col_norm_and_new_vel_obst(quad_pos=drone_dyn.pos, quad_vel=drone_dyn.vel,
+                                                             obstacle_pos=obstacle_pos)
+    vel_change = -vnew * collision_norm
 
     dyn_vel_shift = vel_change
     for _ in range(3):
         cons_rand_val = np.random.normal(loc=0, scale=0.8, size=3)
         vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.15, size=3)
         dyn_vel_shift = vel_change + vel_noise
-        if obst_shape == "cube":
-            break
         if np.dot(drone_dyn.vel + dyn_vel_shift, collision_norm) > 0:
             break
 
@@ -505,14 +479,7 @@ def perform_collision_with_wall(drone_dyn, room_box, damp_low_speed_ratio=0.2, d
     drone_dyn.vel = real_speed * direction_norm
 
     # Random forces for omega
-    omega_max = 20 * np.pi  # this will amount to max 3.5 revolutions per second
-    new_omega = np.random.uniform(low=-1, high=1, size=(3,))  # random direction in 3D space
-    new_omega /= np.linalg.norm(new_omega) + eps  # normalize
-
-    new_omega_mag = np.random.uniform(low=omega_max / 2, high=omega_max)  # random magnitude of the force
-    new_omega *= new_omega_mag
-
-    # add the disturbance to drone's angular velocities while preserving angular momentum
+    new_omega = compute_new_omega()
     drone_dyn.omega += new_omega
 
 
@@ -530,14 +497,7 @@ def perform_collision_with_ceiling(drone_dyn, damp_low_speed_ratio=0.2, damp_hig
     drone_dyn.vel = real_speed * direction_norm
 
     # Random forces for omega
-    omega_max = 20 * np.pi  # this will amount to max 3.5 revolutions per second
-    new_omega = np.random.uniform(low=-1, high=1, size=(3,))  # random direction in 3D space
-    new_omega /= np.linalg.norm(new_omega) + eps  # normalize
-
-    new_omega_mag = np.random.uniform(low=omega_max / 2, high=omega_max)  # random magnitude of the force
-    new_omega *= new_omega_mag
-
-    # add the disturbance to drone's angular velocities while preserving angular momentum
+    new_omega = compute_new_omega()
     drone_dyn.omega += new_omega
 
 
@@ -635,7 +595,97 @@ class OUNoise:
 
 
 if __name__ == "__main__":
-    ## Cross product test
+    """
+        measure time (s)
+
+        1) generate_points; n=8
+            numba: mean: 0.254, std: 0.00295
+            plain: mean: 8.486., std: 0.0499
+        
+        2) get_sphere_radius: num=8; dist=0.5
+            numba: mean: 0.037, std: 0.000586
+            plain: mean: 0.045., std: 0.00075
+        
+        3) get_circle_radius
+            stmt = 'get_circle_radius(num, dist)'
+            setup = 'from __main__ import get_circle_radius; import numpy as np; ' \
+            'num=8; dist=0.65'
+            
+            numba: mean: 0.031, std: 0.000186
+            plain: mean: 0.191, std: 0.005676
+        
+        
+        4) get_grid_dim_number: num=8
+        numba: mean: 0.0292, std: 0.00041
+        plain: mean: 0.3788, std: 0.00556
+        
+        5) calculate_obst_drone_proximity_penalties 
+        stmt = 'calculate_obst_drone_proximity_penalties(distances, arm, dt, 
+        penalty_fall_off, max_penalty, num_agents)' setup = 'from __main__ import 
+        calculate_obst_drone_proximity_penalties; import numpy as np; distances=np.random.uniform(low=0.01, 
+        high=10.0, size=(8,8)); arm=0.05; dt=0.01; penalty_fall_off=0.2; max_penalty=10.0; num_agents=8'
+        
+        numba: mean: 0.171, std: 0.0009
+        plain: mean: 1.0845, std: 0.013
+        
+        6) compute_col_norm_and_new_velocities(dyn1_pos, dyn2_pos, dyn1_vel, dyn2_vel)
+            stmt = 'compute_col_norm_and_new_velocities(dyn1_pos, dyn2_pos, dyn1_vel, dyn2_vel)'
+            setup = 'from __main__ import compute_col_norm_and_new_velocities; import numpy as np; ' \
+            'dyn1_pos=np.zeros(3); dyn2_pos=np.ones(3); dyn1_vel=np.ones(3) * 0.11; dyn2_vel=np.array([1.0, 0.8, 0.655])'
+        
+            numba: mean: 0.1952, std: 0.00077
+            plain: mean: 1.2963, std: 0.00633
+        
+        7) compute_col_norm_and_new_vel_obst(quad_pos, quad_vel, obstacle_pos)
+            stmt = 'compute_col_norm_and_new_vel_obst(quad_pos, quad_vel, obstacle_pos)'
+            setup = 'from __main__ import compute_col_norm_and_new_vel_obst; import numpy as np; ' \
+            'quad_pos=np.zeros(3); quad_vel=np.ones(3); obstacle_pos=np.ones(3) * 0.11'
+            
+            numba: mean: 0.1848, std: 0.0021
+            plain: mean: 1.1344, std: 0.0117
+        
+        8) compute_new_vel
+        stmt = 'compute_new_vel(max_vel_magn, vel, vel_shift, coeff, low=0.2, high=0.8)'
+        setup = 'from __main__ import compute_new_vel; import numpy as np; ' \
+            'max_vel_magn=5; vel=np.array([1., 2., 0.5]); vel_shift=np.array([0.2, 0.5, 0.1]); coeff=1.0'
+        
+        numba: mean: 0.1844, std: 0.0032
+        plain: mean: 1.7305, std: 0.0068
+        
+        9) compute_new_omega: 1e5: ~ 14 faster
+            stmt = 'compute_new_omega()'
+            setup = 'from __main__ import compute_new_omega; import numpy as np'
+            
+            numba: mean: 0.06838, std: 0.0014
+            plain: mean: 0.95835, std: 0.0107
+        
+    """
+    """
+    import timeit
+
+    stmt = 'compute_col_norm_and_new_vel_obst(quad_pos, quad_vel, obstacle_pos)'
+    setup = 'from __main__ import compute_col_norm_and_new_vel_obst; import numpy as np; ' \
+            'quad_pos=np.zeros(3); quad_vel=np.ones(3); obstacle_pos=np.ones(3) * 0.11'
+    use_numba = True
+    # Pass the argument 'n=100' to my_function() and time it
+    if use_numba:
+        repeat = 6
+    else:
+        repeat = 5
+
+    t = timeit.Timer(stmt=stmt, setup=setup)
+    time_taken = t.repeat(repeat=repeat, number=int(2e5))
+    if use_numba:
+        time_taken = np.array(time_taken[1:])
+    else:
+        time_taken = np.array(time_taken)
+
+    print('Time taken:', time_taken)
+    print('Time Mean:', time_taken.mean())
+    print('Time Std:', time_taken.std())
+    """
+
+    # Cross product test
     import time
 
     rot_z = np.array([[3], [4], [5]])
