@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from gym_art.quadrotor_multi.octomap_creation import OctTree
+from gym_art.quadrotor_multi.octomap_creation import OctTreeBase
 from gym_art.quadrotor_multi.utils.quad_utils import EPS
 
 
@@ -12,8 +12,7 @@ class MultiObstacles:
         self.room_dims = np.array(room_dims)
         self.resolution = resolution
         self.obst_shape = obst_shape
-        self.octree = OctTree(obstacle_size=1.0, room_dims=room_dims, resolution=resolution)
-        self.grid_size = obstacle_size
+        self.octreebase = OctTreeBase(obstacle_size=1.0, room_dims=room_dims, resolution=resolution)
         self.size = obstacle_size
         self.half_room_length = self.room_dims[0] / 2
         self.half_room_width = self.room_dims[1] / 2
@@ -22,13 +21,13 @@ class MultiObstacles:
         self.init_box = np.array([[-2.0, -2.0, -0.5 * 2.0], [2.0, 2.0, 1.5 * 2.0]])
         self.drone_pos = []
         self.cell_centers = [
-            (i + (self.grid_size / 2) - self.half_room_length, -(j + (self.grid_size / 2) - self.half_room_width)) for i
+            (i + (self.size / 2) - self.half_room_length, -(j + (self.size / 2) - self.half_room_width)) for i
             in
-            np.arange(0, self.room_dims[0], self.grid_size) for j in np.arange(0, self.room_dims[1], self.grid_size)]
+            np.arange(0, self.room_dims[0], self.size) for j in np.arange(0, self.room_dims[1], self.size)]
         self.pos_arr = None
 
     def reset(self, obs=None, quads_pos=None, start_point=np.array([0., 0., 2.]), end_point=np.array([0., 0., 2.])):
-        self.octree.reset()
+        self.octreebase.reset()
         self.generate_obstacles(num_obstacles=self.num_obstacles, start_point=start_point, end_point=end_point)
 
         obs = self.concate_obst_obs(quads_pos=quads_pos, obs=obs)
@@ -42,7 +41,7 @@ class MultiObstacles:
         obst_obs = []
 
         for quad in quads_pos:
-            surround_obs = self.octree.get_surround(quad)
+            surround_obs = self.octreebase.get_surround(quad)
             approx_part = np.random.uniform(low=-1.0 * self.resolution, high=0.0, size=surround_obs.shape)
 
             surround_obs += approx_part
@@ -78,7 +77,10 @@ class MultiObstacles:
         return drone_collision
 
     def closest_obstacle(self, pos):
-        rel_dist = np.linalg.norm(self.pos_arr[:, :2] - pos[:2], axis=1)
+        try:
+            rel_dist = np.linalg.norm(self.pos_arr[:, :2] - pos[:2], axis=1)
+        except:
+            print()
         closest_index = np.argmin(rel_dist)
         closest = self.pos_arr[closest_index]
         return closest
@@ -114,10 +116,10 @@ class MultiObstacles:
         rot_pos_y = middle_point[1] + math.sin(alpha) * (pos_x - middle_point[0]) + math.cos(alpha) * (
                 pos_y - middle_point[1])
 
-        rot_pos_x = np.clip(rot_pos_x, a_min=-self.half_room_length + self.grid_size,
-                            a_max=self.half_room_length - self.grid_size)
-        rot_pos_y = np.clip(rot_pos_y, a_min=-self.half_room_width + self.grid_size,
-                            a_max=self.half_room_width - self.grid_size)
+        rot_pos_x = np.clip(rot_pos_x, a_min=-self.half_room_length + self.size,
+                            a_max=self.half_room_length - self.size)
+        rot_pos_y = np.clip(rot_pos_y, a_min=-self.half_room_width + self.size,
+                            a_max=self.half_room_width - self.size)
 
         if self.resolution >= 0.1:
             pos_xy = np.around([rot_pos_x, rot_pos_y], decimals=1)
@@ -173,7 +175,7 @@ class MultiObstacles:
 
         self.pos_arr = np.around(self.pos_arr, decimals=1)
         self.mark_octree()
-        self.octree.generate_sdf()
+        self.octreebase.generate_sdf()
 
         return self.pos_arr
 
@@ -202,13 +204,13 @@ class MultiObstacles:
                 for x in range_x:
                     for y in range_y:
                         for z in range_z:
-                            self.octree.add_node([x, y, z])
+                            self.octreebase.add_node([x, y, z])
             elif self.obst_shape == 'cylinder':
                 for x in range_x:
                     for y in range_y:
                         if np.linalg.norm(np.array([x, y]) - item[:2]) <= self.size / 2:
                             for z in range_z:
-                                self.octree.add_node([x, y, z])
+                                self.octreebase.add_node([x, y, z])
             else:
                 raise NotImplementedError(f'{self.obst_shape} is not supported!')
 
@@ -228,9 +230,9 @@ class MultiObstacles:
         for x in [bottom_left[0], upper_right[0]]:
             for y in range_y:
                 for z in range_z:
-                    self.octree.add_node([x, y, z])
+                    self.octreebase.add_node([x, y, z])
 
         for y in [bottom_left[1], upper_right[1]]:
             for x in range_x:
                 for z in range_z:
-                    self.octree.add_node([x, y, z])
+                    self.octreebase.add_node([x, y, z])

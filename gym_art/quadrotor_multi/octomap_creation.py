@@ -6,7 +6,7 @@ import random
 from gym_art.quadrotor_multi.utils.quad_utils import EPS
 
 
-class OctTree:
+class OctTreeBase:
     def __init__(self, obstacle_size=1.0, room_dims=np.array([10, 10, 10]), resolution=0.05, obst_shape='cube'):
         self.start_points = None
         self.resolution = resolution
@@ -25,22 +25,24 @@ class OctTree:
     def reset(self):
         del self.octree
         self.octree = octomap.OcTree(self.resolution)
+        # Allows add_node and remove_node to be deterministic
+        self.octree.setProbMiss(0.0)
+        self.octree.setProbHit(1.0)
         return
     def add_node(self, pos):
         self.octree.updateNode(pos, True)
 
     def remove_node(self, pos):
-        self.octree.deleteNode(pos)
-        #self.octree.updateNode(pos, False)
+        self.octree.updateNode(pos, False)
 
     def update_sdf(self):
         self.octree.dynamicEDT_update(True)
 
     def generate_sdf(self):
         # max_dist: clamps distances at maxdist
-        max_dist = 1.0
-        bottom_left = np.array([-1.0 * self.room_dims[0], -1.0 * self.room_dims[1], 0])
-        upper_right = np.array([1.0 * self.room_dims[0], 1.0 * self.room_dims[1], self.room_dims[2]])
+        max_dist = 100
+        bottom_left = np.array([-1.0 * self.room_dims[0], -1.0 * self.room_dims[1], 0]) - 2.0 * self.resolution
+        upper_right = np.array([1.0 * self.room_dims[0], 1.0 * self.room_dims[1], self.room_dims[2]]) + 2.0 * self.resolution
 
         self.octree.dynamicEDT_generate(maxdist=max_dist,
                                         bbx_min=bottom_left,

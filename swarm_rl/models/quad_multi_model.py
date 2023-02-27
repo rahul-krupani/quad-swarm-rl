@@ -152,7 +152,7 @@ class QuadMultiEncoder(Encoder):
 
         if self.num_use_neighbor_obs > 0:
             neighbor_encoder_type = cfg.quads_neighbor_encoder_type
-            if self.neighbor_obs_type == 'octomap':
+            if self.neighbor_obs_type == 'distance_matrix':
                 self.neighbor_obs_dim = 27
                 self.neighbor_encoder = nn.Sequential(
                     fc_layer(self.neighbor_obs_dim, self.neighbor_hidden_size, spec_norm=self.use_spectral_norm),
@@ -227,13 +227,18 @@ class QuadMultiEncoder(Encoder):
         # relative xyz and vxyz for the entire minibatch (batch dimension is batch_size * num_neighbors)
         all_neighbor_obs_size = self.neighbor_obs_dim * self.num_use_neighbor_obs
         if self.num_use_neighbor_obs > 0 and self.neighbor_encoder:
-            obs_neighbors = obs[:, self.self_obs_dim:self.self_obs_dim+self.neighbor_obs_dim]
-            neighborhood_embedding = self.neighbor_encoder(obs_neighbors)
+            if self.neighbor_obs_type == 'distance_matrix':
+                obs_neighbors = obs[:, self.self_obs_dim:self.self_obs_dim+self.neighbor_obs_dim]
+                neighborhood_embedding = self.neighbor_encoder(obs_neighbors)
+            else:
+                neighborhood_embedding = self.neighbor_encoder(obs_self, obs, all_neighbor_obs_size, batch_size)
             embeddings = torch.cat((embeddings, neighborhood_embedding), dim=1)
 
         # if self.obstacle_mode != 'no_obstacles':
+        if self.neighbor_obs_type == 'distance_matrix':
+            all_neighbor_obs_size = self.neighbor_obs_dim
         if self.use_obstacles:
-            obs_obstacles = obs[:, self.self_obs_dim + self.neighbor_obs_dim:]
+            obs_obstacles = obs[:, self.self_obs_dim + all_neighbor_obs_size:]
             obstacle_embeds = self.obstacle_encoder(obs_obstacles)
             embeddings = torch.cat((embeddings, obstacle_embeds), dim=1)
 

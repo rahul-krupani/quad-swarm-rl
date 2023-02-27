@@ -7,7 +7,7 @@ import gym
 
 from copy import deepcopy
 
-from gym_art.quadrotor_multi.quadrotor_neighbor_octree import NeighborOctree
+from gym_art.quadrotor_multi.quadrotor_neighbor_octree import NeighborObs
 from gym_art.quadrotor_multi.utils.quad_utils import perform_collision_between_drones, \
     calculate_obst_drone_proximity_penalties, perform_collision_with_obstacle, perform_downwash, \
     perform_collision_with_wall, perform_collision_with_ceiling, SELF_OBS_REPR, NEIGHBOR_OBS
@@ -121,7 +121,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.use_obstacles = use_obstacles
         self.octree_resolution = octree_resolution
         self.obstacles = None
-        self.neighbors = NeighborOctree(num_agents=self.num_agents, room_dims=self.room_dims, resolution=self.octree_resolution)
+        self.neighbors = NeighborObs(num_agents=self.num_agents, room_dims=self.room_dims)
         if self.use_obstacles:
             self.prev_obst_quad_collisions = []
             self.obst_quad_collisions_per_episode = 0
@@ -330,7 +330,7 @@ class QuadrotorEnvMulti(gym.Env):
             obs.append(observation)
 
         # extend obs to see neighbors
-        if self.swarm_obs == 'octomap':
+        if self.swarm_obs == 'distance_matrix':
             obs = self.neighbors.reset(obs, self.pos)
         else:
             obs = self.add_neighborhood_obs(obs)
@@ -397,7 +397,7 @@ class QuadrotorEnvMulti(gym.Env):
             # Penalties for smallest distance between obstacles and drones
             # Only penalize the smallest instead of checking all nearby obstacles makes sense.
             # Since we don't want drones afraid of flying into obstacle dense zone.
-            drone_obst_dists = np.array([self.obstacles.octree.sdf_dist(i.dynamics.pos) for i in self.envs])
+            drone_obst_dists = np.array([self.obstacles.octreebase.sdf_dist(i.dynamics.pos) for i in self.envs])
 
             rew_obst_quad_proximity = -1.0 * calculate_obst_drone_proximity_penalties(
                 distances=drone_obst_dists, arm=self.quad_arm, dt=self.control_dt,
@@ -432,11 +432,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.all_collisions = {'drone': np.sum(neighbor_collision_matrix, axis=1), 'ground': ground_collisions,
                                'obstacle': obst_coll}
-
-        '''self.obstacles.octree.remove_drone_nodes()
-        for i in self.envs:
-            self.obstacles.octree.add_node(i.dynamics.pos)
-        self.obstacles.octree.octree.dynamicEDT_update(True)'''
 
         if self.use_downwash:
             envs_dynamics = [env.dynamics for env in self.envs]
@@ -489,7 +484,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate observations of neighbor drones
         if self.num_use_neighbor_obs > 0:
-            if self.swarm_obs == 'octomap':
+            if self.swarm_obs == 'distance_matrix':
                 obs = self.neighbors.step(obs, self.pos)
             else:
                 obs = self.add_neighborhood_obs(obs)

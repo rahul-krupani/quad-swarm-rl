@@ -8,6 +8,42 @@ from gym_art.quadrotor_multi.utils.quad_utils import QUAD_RADIUS
 COL_GRACE_PERIOD = 1.5
 
 
+#@njit
+def calculate_nei_dist_matrix(pos, index):
+    mins = []
+
+    offset = [-0.1, 0, 0.1]
+    for x in range(3):
+        for y in range(3):
+            for z in range(3):
+                pos[index] += np.array([offset[x], offset[y], offset[z]])
+                n, d = pos.shape
+                dist = np.zeros((n, n))
+                for i in range(n):
+                    for j in range(n):
+                        tmp = 0.0
+                        for k in range(d):
+                            diff = pos[i, k] - pos[j, k]
+                            tmp += diff ** 2
+                        dist[i, j] = tmp
+                pos[index] -= np.array([offset[x], offset[y], offset[z]])
+                dist_matrix = np.sqrt(dist)
+                dist_matrix[index][index] = 100.0
+                mins.append(min(dist_matrix[index]))
+
+    return mins
+
+
+    # tt_mins = []
+    # for i in range(27):
+    #     dist_matrix = spatial.distance_matrix(x=pos, y=pos)
+    #     np.fill_diagonal(dist_matrix, 1000)
+    #     tt_mins.append(min(dist_matrix[0]))
+    #
+    # tt_mins = np.array(tt_mins)
+    return np.array(mins)
+    # return mins
+
 def calculate_neighbor_collision_matrix(positions, hit_box_size):
     dist_matrix = spatial.distance_matrix(x=positions, y=positions)
     collision_matrix = (dist_matrix < hit_box_size * QUAD_RADIUS).astype(np.float32)

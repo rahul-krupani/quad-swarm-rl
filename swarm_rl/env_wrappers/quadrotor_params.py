@@ -41,7 +41,7 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_collision_coeff', default=1.0, type=float, help='The coefficient for collision simulation between drones')
     p.add_argument('--use_downwash', default=False, type=bool, help='Apply downwash or not')
 
-    p.add_argument('--neighbor_obs_type', default='none', type=str, choices=['none', 'pos_vel', 'pos_vel_goals', 'pos_vel_goals_ndist_gdist', 'octomap'], help='Choose what kind of obs to send to encoder.')
+    p.add_argument('--neighbor_obs_type', default='none', type=str, choices=['none', 'pos_vel', 'pos_vel_goals', 'pos_vel_goals_ndist_gdist', 'distance_matrix'], help='Choose what kind of obs to send to encoder.')
     p.add_argument('--quads_use_numba', default=False, type=str2bool, help='Whether to use numba for jit or not')
     p.add_argument('--quads_local_obs', default=-1, type=int, help='Number of neighbors to consider. -1=all neighbors. 0=blind agents, 0<n<num_agents-1 = nonzero number of agents')
 
