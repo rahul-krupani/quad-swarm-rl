@@ -18,6 +18,7 @@ NEIGHBOR_OBS = {
     'pos_vel': 6,
     'pos_vel_goals': 9,
     'pos_vel_goals_ndist_gdist': 11,
+    'distance_matrix': 27,
 }
 
 QUAD_COLOR = (

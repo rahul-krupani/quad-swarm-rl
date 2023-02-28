@@ -2,7 +2,7 @@ import numpy as np
 
 from gym_art.quadrotor_multi.utils.quad_neighbor_utils import add_neighborhood_obs, \
     calculate_collision_matrix, COLLISIONS_GRACE_PERIOD, calculate_drone_proximity_penalties, perform_downwash, \
-    get_vel_omega_change_neighbor_collisions
+    get_vel_omega_change_neighbor_collisions, calculate_nei_dist_matrix
 from gym_art.quadrotor_multi.utils.quad_utils import SELF_OBS_REPR, NEIGHBOR_OBS
 
 
@@ -57,12 +57,20 @@ class MultiNeighbors:
         # Update
         self.rew_coeff = rew_coeff
 
-        # Concatenate observations of neighbor drones
-        obs = add_neighborhood_obs(
-            obs=obs, swarm_obs=self.obs_type, num_agents=self.num_agents, positions=sense_positions,
-            velocities=sense_velocities, num_use_neighbor_obs=self.visible_neighbor_num, goals=goals,
-            clip_neighbor_space_min_box=self.clip_obs_low_box,
-            clip_neighbor_space_max_box=self.clip_obs_high_box)
+        if self.obs_type == "distance_matrix":
+            neighbor_obs = []
+            sense_positions = np.array(sense_positions)
+            for index in range(len(sense_positions)):
+                neighbor_obs.append(calculate_nei_dist_matrix(sense_positions, index))
+
+            obs = np.concatenate((obs, neighbor_obs), axis=1)
+        else:
+            # Concatenate observations of neighbor drones
+            obs = add_neighborhood_obs(
+                obs=obs, swarm_obs=self.obs_type, num_agents=self.num_agents, positions=sense_positions,
+                velocities=sense_velocities, num_use_neighbor_obs=self.visible_neighbor_num, goals=goals,
+                clip_neighbor_space_min_box=self.clip_obs_low_box,
+                clip_neighbor_space_max_box=self.clip_obs_high_box)
 
         # Reset collision variables
         self.prev_drone_collisions = []
@@ -73,11 +81,19 @@ class MultiNeighbors:
 
     def step(self, obs, sense_positions, sense_velocities, goals):
         # Concatenate observations of neighbor drones
-        obs = add_neighborhood_obs(
-            obs=obs, swarm_obs=self.obs_type, num_agents=self.num_agents, positions=sense_positions,
-            velocities=sense_velocities, num_use_neighbor_obs=self.visible_neighbor_num, goals=goals,
-            clip_neighbor_space_min_box=self.clip_obs_low_box,
-            clip_neighbor_space_max_box=self.clip_obs_high_box)
+        if self.obs_type == "distance_matrix":
+            neighbor_obs = []
+            sense_positions = np.array(sense_positions)
+            for index in range(len(sense_positions)):
+                neighbor_obs.append(calculate_nei_dist_matrix(sense_positions, index))
+
+            obs = np.concatenate((obs, neighbor_obs), axis=1)
+        else:
+            obs = add_neighborhood_obs(
+                obs=obs, swarm_obs=self.obs_type, num_agents=self.num_agents, positions=sense_positions,
+                velocities=sense_velocities, num_use_neighbor_obs=self.visible_neighbor_num, goals=goals,
+                clip_neighbor_space_min_box=self.clip_obs_low_box,
+                clip_neighbor_space_max_box=self.clip_obs_high_box)
 
         return obs
 

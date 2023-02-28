@@ -1,10 +1,38 @@
 import numpy as np
+from numba import njit
 from scipy import spatial
 
 from gym_art.quadrotor_multi.utils.quad_utils import compute_new_vel, compute_new_omega, EPS, QUAD_RADIUS
 
 # 1.5 seconds
 COLLISIONS_GRACE_PERIOD = 1.5
+
+
+@njit
+def calculate_nei_dist_matrix(pos, index):
+    mins = []
+
+    offset = [-0.1, 0, 0.1]
+    for x in range(3):
+        for y in range(3):
+            for z in range(3):
+                pos[index] += np.array([offset[x], offset[y], offset[z]])
+                n, d = pos.shape
+                dist = np.zeros((n, n))
+                for i in range(n):
+                    for j in range(n):
+                        tmp = 0.0
+                        for k in range(d):
+                            diff = pos[i, k] - pos[j, k]
+                            tmp += diff ** 2
+                        dist[i, j] = tmp
+                pos[index] -= np.array([offset[x], offset[y], offset[z]])
+                dist_matrix = np.sqrt(dist)
+                dist_matrix[index][index] = 100.0
+                mins.append(min(dist_matrix[index]))
+
+    return np.array(mins)
+
 
 
 # Rendering & Reward

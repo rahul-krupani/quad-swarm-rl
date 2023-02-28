@@ -1077,12 +1077,15 @@ class QuadrotorSingle:
             "nbr_dist": [np.zeros(1), room_max_dist],
             "nbr_goal_dist": [np.zeros(1), room_max_dist],
             "wall": [np.zeros(6), 5.0 * np.ones(6)],
+            "neighbor_distance_matrix": [-10 * np.ones(27), 10 * np.ones(27)],
             "octmap": [-10 * np.ones(9), 10 * np.ones(9)],
         }
         self.obs_comp_names = list(self.obs_space_low_high.keys())
         self.obs_comp_sizes = [self.obs_space_low_high[name][1].size for name in self.obs_comp_names]
 
         obs_comps = self.obs_repr.split("_")
+        if self.swarm_obs == 'distance_matrix' and self.num_agents > 1:
+            obs_comps = obs_comps + ['neighbor_distance_matrix']
         if self.swarm_obs == 'pos_vel' and self.num_agents > 1:
             obs_comps = obs_comps + (['rxyz'] + ['rvxyz']) * self.num_use_neighbor_obs
         elif self.swarm_obs == 'pos_vel_goals' and self.num_agents > 1:

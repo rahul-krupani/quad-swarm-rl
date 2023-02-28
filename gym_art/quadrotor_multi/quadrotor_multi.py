@@ -221,7 +221,7 @@ class QuadrotorEnvMulti(gym.Env):
             obs = self.obstacles.reset(obs=obs, quads_pos=sense_positions, start_point=self.scenario.start_point,
                                        end_point=self.scenario.end_point, rew_coeff=self.rew_coeff)
 
-        self.room.reset()
+        self.room.reset(rew_coeff=self.rew_coeff)
 
         # Reset scene
         self.reset_scene = True
