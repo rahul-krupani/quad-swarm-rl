@@ -42,6 +42,7 @@ QUADS_PARAMS_DICT = {
     'o_random': [['circle_horizontal'], [0.0, 0.0]],
     'o_dynamic_same_goal': [['circle_horizontal'], [0.0, 0.0]],
     'o_dynamic_diff_goal': [QUADS_FORMATION_LIST, [5 * quad_arm_size, 10 * quad_arm_size]],
+    'o_ep_free_space': [['circle_horizontal'], [0.0, 0.0]],
 
 }
 
