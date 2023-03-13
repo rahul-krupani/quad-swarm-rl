@@ -137,6 +137,8 @@ class QuadMultiEncoder(Encoder):
 
         self.neighbor_hidden_size = cfg.quads_neighbor_hidden_size
         self.use_obstacles = cfg.use_obstacles
+        self.obst_obs_type = cfg.quads_obst_obs_type
+        self.obst_local_num = cfg.quads_obst_local_num
         self.obstacle_mode = cfg.quads_obstacle_mode
         self.neighbor_obs_type = cfg.neighbor_obs_type
         self.use_spectral_norm = cfg.use_spectral_norm
@@ -199,8 +201,11 @@ class QuadMultiEncoder(Encoder):
         # encode the obstacle observations
         obstacle_encoder_out_size = 0
         if self.use_obstacles:
-            # Currently, obstacle height = room_height. Therefore, we only need SDFs in 2D plane
-            self.obstacle_obs_dim = 9
+            if self.obst_obs_type == 'octomap':
+                # Currently, obstacle height = room_height. Therefore, we only need SDFs in 2D plane
+                self.obstacle_obs_dim = 9
+            elif self.obst_obs_type == 'closest_pos':
+                self.obstacle_obs_dim = 2*self.obst_local_num
             self.obstacle_hidden_size = cfg.quads_obst_hidden_size  # internal param
             self.obstacle_encoder = nn.Sequential(
                 fc_layer(self.obstacle_obs_dim, self.obstacle_hidden_size, spec_norm=self.use_spectral_norm),

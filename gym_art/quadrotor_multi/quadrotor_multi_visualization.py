@@ -159,7 +159,7 @@ class Quadrotor3DSceneMulti:
                     self.path_transforms[i].append(r3d.transform_and_color(np.eye(4), color, path_sphere))
 
         # TODO make floor size or walls to indicate world_box
-        floor = r3d.ProceduralTexture(r3d.random_textype(), (0.15, 0.25),
+        floor = r3d.ProceduralTexture(r3d.random_textype(), (0.85, 0.95),
                                       r3d.rect((100, 100), (0, 100), (0, 100)))
         self.update_goal_diameter()
         self.chase_cam.view_dist = self.diameter * 15
@@ -175,7 +175,7 @@ class Quadrotor3DSceneMulti:
             bodies.extend(path)
         # visualize walls of the room if True
         if self.walls_visible:
-            room = r3d.ProceduralTexture(r3d.random_textype(), (0.15, 0.25), r3d.envBox(*self.room_dims))
+            room = r3d.ProceduralTexture(r3d.random_textype(), (0.75, 0.85), r3d.envBox(*self.room_dims))
             bodies.append(room)
 
         if self.obstacles:

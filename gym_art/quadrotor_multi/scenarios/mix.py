@@ -92,3 +92,22 @@ class Scenario_mix(QuadrotorScenario):
         if self.envs[0].use_obstacles:
             self.start_point = self.scenario.start_point
             self.end_point = self.scenario.end_point
+
+    def reset(self, obst_map=None):
+        mode_index = np.random.randint(low=0, high=len(self.quads_mode_list))
+        mode = self.quads_mode_list[mode_index]
+
+        # Init the scenario
+        self.scenario = create_scenario(quads_mode=mode, envs=self.envs, num_agents=self.num_agents,
+                                        room_dims=self.room_dims, room_dims_callback=self.room_dims_callback,
+                                        rew_coeff=self.rew_coeff, quads_formation=self.formation,
+                                        quads_formation_size=self.formation_size)
+
+        self.obst_map = obst_map
+        self.scenario.reset(obst_map=obst_map)
+        self.goals = self.scenario.goals
+        self.formation_size = self.scenario.formation_size
+
+        if self.envs[0].use_obstacles:
+            self.start_point = self.scenario.start_point
+            self.end_point = self.scenario.end_point

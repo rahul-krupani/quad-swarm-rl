@@ -36,7 +36,7 @@ class QuadrotorEnvMulti(gym.Env):
                  collision_falloff_radius=2.0, collision_smooth_max_penalty=10.0, use_replay_buffer=False,
                  vis_acc_arrows=False, viz_traces=25, viz_trace_nth_step=1,
                  use_obstacles=False, num_obstacles=0, obstacle_size=0.0, octree_resolution=0.05, use_downwash=False,
-                 collision_obst_falloff_radius=3.0, obst_shape="cube", obstacle_density=0.2
+                 collision_obst_falloff_radius=3.0, obst_shape="cube", obstacle_density=0.2, obst_obs_type='octomap', obst_local_num=6
                  ):
 
         super().__init__()
@@ -64,7 +64,8 @@ class QuadrotorEnvMulti(gym.Env):
                 obs_repr, ep_time, room_length, room_width, room_height, init_random_state,
                 rew_coeff, sense_noise, verbose, gravity, t2w_std, t2t_std, excite, dynamics_simplification,
                 quads_use_numba, self.swarm_obs, self.num_agents, quads_view_mode,
-                self.num_use_neighbor_obs, use_obstacles=use_obstacles
+                self.num_use_neighbor_obs, use_obstacles=use_obstacles,
+                obst_obs_type=obst_obs_type, obst_local_num=obst_local_num
             )
             self.envs.append(e)
 
@@ -138,6 +139,9 @@ class QuadrotorEnvMulti(gym.Env):
         self.use_obstacles = use_obstacles
         self.obstacles = None
         self.num_obstacles = 0
+        self.obst_obs_type = obst_obs_type
+        self.obst_obs_type = obst_obs_type
+        self.obst_local_num = obst_local_num
         if self.use_obstacles:
             self.prev_obst_quad_collisions = []
             self.obst_quad_collisions_per_episode = 0
@@ -149,7 +153,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.octree_resolution = octree_resolution
             self.obstacles = MultiObstacles(num_obstacles=self.num_obstacles, room_dims=self.room_dims,
                                             resolution=self.octree_resolution, obstacle_size=self.obstacle_size,
-                                            obst_shape=self.obst_shape)
+                                            obst_shape=self.obst_shape, obst_obs_type=self.obst_obs_type, obst_local_num=self.obst_local_num)
 
         # Aux variables for scenarios
         self.scenario = create_scenario(quads_mode=quads_mode, envs=self.envs, num_agents=self.num_agents,

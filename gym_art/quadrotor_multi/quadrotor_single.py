@@ -821,7 +821,7 @@ class QuadrotorSingle:
                  rew_coeff=None, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
                  swarm_obs='none', num_agents=1,
-                 view_mode='local', num_use_neighbor_obs=0, use_obstacles=False):
+                 view_mode='local', num_use_neighbor_obs=0, use_obstacles=False, obst_obs_type='octomap', obst_local_num=6):
         np.seterr(under='ignore')
         """
         Args:
@@ -871,6 +871,8 @@ class QuadrotorSingle:
         self.num_use_neighbor_obs = num_use_neighbor_obs
         self.num_agents = num_agents
         self.use_obstacles = use_obstacles
+        self.obst_obs_type = obst_obs_type
+        self.obst_local_num = obst_local_num
         ## t2w and t2t ranges
         self.t2w_std = t2w_std
         self.t2w_min = 1.5
@@ -1074,6 +1076,8 @@ class QuadrotorSingle:
             "rxyz": [-room_range, room_range],  # rxyz stands for relative pos between quadrotors
             "rvxyz": [-2.0 * self.dynamics.vxyz_max * np.ones(3), 2.0 * self.dynamics.vxyz_max * np.ones(3)],
             # rvxyz stands for relative velocity between quadrotors
+            "roxy": [-room_range[:2], room_range[:2]],
+            # roxy stands for relative xy pos between quadrotor and obstacle, used when obstacle is inf high
             "roxyz": [-room_range, room_range],  # roxyz stands for relative pos between quadrotor and obstacle
             "rovxyz": [-20.0 * np.ones(3), 20.0 * np.ones(3)],
             # rovxyz stands for relative velocity between quadrotor and obstacle
@@ -1100,7 +1104,10 @@ class QuadrotorSingle:
                     ['rxyz'] + ['rvxyz'] + ['goal'] + ['nbr_dist'] + ['nbr_goal_dist']) * self.num_use_neighbor_obs
 
         if self.use_obstacles:
-            obs_comps = obs_comps + ["octmap"]
+            if self.obst_obs_type == 'octomap':
+                obs_comps = obs_comps + ["octmap"]
+            elif self.obst_obs_type == 'closest_pos':
+                obs_comps = obs_comps + (["roxy"]) * self.obst_local_num
 
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []

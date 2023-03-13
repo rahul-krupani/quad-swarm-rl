@@ -37,6 +37,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obstacle_size', default=1.0, type=float, help='The radius of obstacles')
     p.add_argument('--quads_obstacle_density', default=0.2, type=float, help='Obstacle density in the map')
     p.add_argument('--quads_obstacle_shape', default="cube", type=str, choices=["cube", "cylinder"], help='The shape of obstacles')
+    p.add_argument('--quads_obst_obs_type', default='octomap', type=str, choices=['none', 'closest_pos', 'octomap'], help='Choose what kind of obs to send to encoder.')
+    p.add_argument('--quads_obst_local_num', default=6, type=int, help='Choose number of closest obstacles to look at')
 
     p.add_argument('--quads_obst_collision_reward', default=0.0, type=float, help='Override default value for quadcol_bin_obst reward, which means collisions between quadrotor and obstacles')
     p.add_argument('--quads_obst_collision_smooth_max_penalty', default=10.0, type=float, help='The upper bound of the collision function given distance between drones and obstacles')
