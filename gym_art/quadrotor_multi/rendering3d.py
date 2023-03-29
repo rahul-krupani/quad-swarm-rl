@@ -109,8 +109,26 @@ class FBOTarget(object):
         return self.fb_array
 
 
+class MultiWindow(pyglet.window.Window):
+    def __init__(self, x=0, y=0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.shared_context = self.context
+        self.set_location(x, y)
+        self.set_minimum_size(200, 200)
+
+    def on_resize(self, width, height):
+        glViewport(0, 0, width, height)
+        glScissor(0, 0, width, height)
+
+    def on_draw(self):
+        glClear(GL_COLOR_BUFFER_BIT)
+        glEnable(GL_SCISSOR_TEST)
+        glScissor(*self.get_viewport())
+        # Draw to the current window
+        glDisable(GL_SCISSOR_TEST)
+
 class WindowTarget(object):
-    def __init__(self, width, height, display=None, resizable=True):
+    def __init__(self, width, height, display=None, resizable=True, x=0, y=0):
 
         is_travis = 'TRAVIS' in os.environ
         if is_travis:
@@ -122,8 +140,8 @@ class WindowTarget(object):
 
         display = get_display(display)
         # vsync is set to false to speed up FBO-only renders, we enable before draw
-        self.window = pyglet.window.Window(display=display,
-            width=width, height=height, resizable=resizable,
+        self.window = pyglet.window.Window(display=display,#x=x, y=y,
+            width=width, height=height, resizable=resizable, style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS,
             visible=True, vsync=False, config=config
         )
         self.window.on_close = self.close
@@ -147,6 +165,12 @@ class WindowTarget(object):
         else:
             glViewport(0, 0, self.window.width, self.window.height)
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
+    def location(self):
+        return self.window.get_location()
+
+    def set_location(self, x, y):
+        self.window.set_location(x, y)
 
     def finish(self):
         self.window.flip()

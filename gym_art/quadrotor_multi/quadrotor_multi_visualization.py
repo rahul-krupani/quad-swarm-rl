@@ -1,5 +1,7 @@
 import copy
 
+import pyglet
+
 from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_visualization import ChaseCamera, SideCamera, quadrotor_simple_3dmodel, \
     quadrotor_3dmodel
@@ -22,17 +24,80 @@ class GlobalCamera(object):
     def look_at(self):
         up = npa(0, 0, 1)
         center = self.center  # pattern center
-        eye = center + self.radius * np.array([np.sin(self.theta) * np.cos(self.phi), np.sin(self.theta) * np.sin(self.phi), np.cos(self.theta)])
+        eye = center + self.radius * np.array(
+            [np.sin(self.theta) * np.cos(self.phi), np.sin(self.theta) * np.sin(self.phi), np.cos(self.theta)])
+        return eye, center, up
+
+class TopDownCamera(object):
+    def __init__(self, view_dist=3.0):
+        self.radius = view_dist
+        self.theta = np.pi / 2
+        self.phi = 0.0
+        self.center = np.array([0., 0., 9.])
+
+    def reset(self, view_dist=2.0, center=np.array([0., 0., 5.])):
+        center = np.array([0., 0., 5.])
+        #self.center = center
+
+    def step(self, center=np.array([0., 0., 2.])):
+        pass
+
+    def look_at(self):
+        up = npa(0, 0, 1)
+        eye = self.center  # pattern center
+        center = self.center - np.array([0, 0, 2])
+        center = (center/np.linalg.norm(center)) * self.radius
+        return eye, center, up
+
+class CornerCamera(object):
+    def __init__(self, view_dist=4.0, room_dims=np.array([10, 10, 10]), corner_index=0):
+        self.radius = view_dist
+        self.theta = np.pi / 2
+        self.phi = 0.0
+        self.center = np.array([0., 0., 2.])
+        self.corner_index = corner_index
+        self.room_dims = room_dims
+        if corner_index == 0:
+            self.center = np.array([-self.room_dims[0] / 2, -self.room_dims[1] / 2, self.room_dims[2]])
+        elif corner_index == 1:
+            self.center = np.array([self.room_dims[0] / 2, -self.room_dims[1] / 2, self.room_dims[2]])
+        elif corner_index == 2:
+            self.center = np.array([-self.room_dims[0] / 2, self.room_dims[1] / 2, self.room_dims[2]])
+        elif corner_index == 3:
+            self.center = np.array([self.room_dims[0] / 2, self.room_dims[1] / 2, self.room_dims[2]])
+
+    def reset(self, view_dist=4.0, center=None):
+        if center is not None:
+            self.center = center
+        elif self.corner_index == 0:
+            self.center = np.array([-self.room_dims[0] / 2, -self.room_dims[1] / 2, self.room_dims[2]])
+        elif self.corner_index == 1:
+            self.center = np.array([self.room_dims[0] / 2, -self.room_dims[1] / 2, self.room_dims[2]])
+        elif self.corner_index == 2:
+            self.center = np.array([-self.room_dims[0] / 2, self.room_dims[1] / 2, self.room_dims[2]])
+        elif self.corner_index == 3:
+            self.center = np.array([self.room_dims[0] / 2, self.room_dims[1] / 2, self.room_dims[2]])
+
+    def step(self, center=np.array([0., 0., 2.])):
+        pass
+
+    def look_at(self):
+        up = npa(0, 0, 1)
+        eye = self.center  # pattern center
+        center = self.center - np.array([0, 0, 2])
+        center = (center/np.linalg.norm(center)) * self.radius
         return eye, center, up
 
 
 class Quadrotor3DSceneMulti:
+    first_spawn_x = 0
+
     def __init__(
             self, w, h,
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
             render_speed=1.0, formation_size=-1.0, vis_acc_arrows=None, viz_traces=False, viz_trace_nth_step=1,
-            num_obstacles=0,
+            num_obstacles=0, scene_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
         self.keys = None  # keypress handler, initialized later
@@ -46,6 +111,7 @@ class Quadrotor3DSceneMulti:
         self.viewpoint = viewpoint
         self.obs_hw = copy.deepcopy(obs_hw)
         self.walls_visible = walls_visible
+        self.scene_index = scene_index
 
         self.quad_arm = quad_arm
         self.models = models
@@ -67,6 +133,10 @@ class Quadrotor3DSceneMulti:
             self.chase_cam = SideCamera(view_dist=self.diameter * 15)
         elif self.viewpoint == 'global':
             self.chase_cam = GlobalCamera(view_dist=2.5)
+        elif self.viewpoint == 'topdown':
+            self.chase_cam = TopDownCamera(view_dist=2.5)
+        elif self.viewpoint[:-1] == 'corner':
+            self.chase_cam = CornerCamera(view_dist=4.0, room_dims=self.room_dims, corner_index=int(self.viewpoint[-1]))
 
         self.fpv_lookat = None
 
@@ -76,7 +146,7 @@ class Quadrotor3DSceneMulti:
         self.video_target = None
 
         self.obstacles = None
-        if obstacles and num_obstacles > 0:
+        if obstacles:
             self.obstacles = obstacles
 
         # Save parameters to help transfer from global camera to local camera
@@ -159,7 +229,7 @@ class Quadrotor3DSceneMulti:
                     self.path_transforms[i].append(r3d.transform_and_color(np.eye(4), color, path_sphere))
 
         # TODO make floor size or walls to indicate world_box
-        floor = r3d.ProceduralTexture(r3d.random_textype(), (0.85, 0.95),
+        floor = r3d.ProceduralTexture(0, (0.85, 0.95),
                                       r3d.rect((100, 100), (0, 100), (0, 100)))
         self.update_goal_diameter()
         self.chase_cam.view_dist = self.diameter * 15
@@ -188,8 +258,6 @@ class Quadrotor3DSceneMulti:
         self.scene = r3d.Scene(batches=[batch], bgcolor=(0, 0, 0))
         self.scene.initialize()
 
-        
-
         # Collision spheres have to be added in the ending after everything has been rendered, as it transparent
         bodies = []
         bodies.extend(self.collision_transforms)
@@ -200,21 +268,21 @@ class Quadrotor3DSceneMulti:
 
     def create_obstacles(self):
         import gym_art.quadrotor_multi.rendering3d as r3d
-        for item in self.obstacles.octree.pos_arr:
+        for item in self.obstacles.pos_arr:
             color = QUAD_COLOR[14]
             obst_height = self.room_dims[2]
             obstacle_transform = r3d.transform_and_color(np.eye(4), color, r3d.cylinder(
-                radius=self.obstacles.octree.size / 2.0, height=obst_height, sections=64))
+                radius=self.obstacles.size / 2.0, height=obst_height, sections=64))
 
             self.obstacle_transforms.append(obstacle_transform)
 
     def update_obstacles(self, obstacles):
         import gym_art.quadrotor_multi.rendering3d as r3d
 
-        if len(obstacles.octree.pos_arr) == 1:
+        if len(obstacles.pos_arr) == 1:
             return
 
-        for i, g in enumerate(obstacles.octree.pos_arr):
+        for i, g in enumerate(obstacles.pos_arr):
             # self.obstacle_transforms[i].set_transform(r3d.translate(g.pos))
             pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
 
@@ -225,7 +293,7 @@ class Quadrotor3DSceneMulti:
 
         goal_sphere = r3d.sphere(self.goal_diameter / 2, 18)
         for i in range(len(self.models)):
-            color = QUAD_COLOR[-1]
+            color = QUAD_COLOR[i % len(QUAD_COLOR)]
             goal_transform = r3d.transform_and_color(np.eye(4), color, goal_sphere)
             self.goal_transforms.append(goal_transform)
 
@@ -256,9 +324,12 @@ class Quadrotor3DSceneMulti:
         if self.viewpoint == 'global':
             goal = np.mean(goals, axis=0)
             self.chase_cam.reset(view_dist=2.5, center=goal)
+        elif self.viewpoint[:-1] == 'corner' or self.viewpoint == 'topdown':
+            self.chase_cam.reset()
         else:
             goal = goals[self.camera_drone_index]  # TODO: make a camera that can look at all drones
-            self.chase_cam.reset(goal[0:3], dynamics[self.camera_drone_index].pos, dynamics[self.camera_drone_index].vel)
+            self.chase_cam.reset(goal[0:3], dynamics[self.camera_drone_index].pos,
+                                 dynamics[self.camera_drone_index].vel)
 
         self.update_state(dynamics, goals, obstacles, collisions)
 
@@ -266,11 +337,12 @@ class Quadrotor3DSceneMulti:
         import gym_art.quadrotor_multi.rendering3d as r3d
 
         if self.scene:
-            if self.viewpoint == 'global':
+            if self.viewpoint == 'global' or self.viewpoint[:-1] == 'corner' or self.viewpoint == 'topdown':
                 goal = np.mean(goals, axis=0)
                 self.chase_cam.step(center=goal)
             else:
-                self.chase_cam.step(all_dynamics[self.camera_drone_index].pos, all_dynamics[self.camera_drone_index].vel)
+                self.chase_cam.step(all_dynamics[self.camera_drone_index].pos,
+                                    all_dynamics[self.camera_drone_index].vel)
                 self.fpv_lookat = all_dynamics[self.camera_drone_index].look_at()
             # use this to get trails on the goals and visualize the paths they follow
             # bodies = []
@@ -298,7 +370,7 @@ class Quadrotor3DSceneMulti:
                     color_rgba = QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,)
                     path_storage_length = len(self.path_store[i])
                     for k in range(path_storage_length):
-                        scale = k/path_storage_length + 0.01
+                        scale = k / path_storage_length + 0.01
                         transformation = self.path_store[i][k] @ r3d.scale(scale)
                         self.path_transforms[i][k].set_transform_and_color(transformation, color_rgba)
 
@@ -343,12 +415,21 @@ class Quadrotor3DSceneMulti:
                 else:
                     self.collision_transforms[i].set_transform_and_color(matrix, (0, 0, 0, 0.0))
 
-    def render_chase(self, all_dynamics, goals, collisions, mode='human', obstacles=None):
+    def render_chase(self, all_dynamics, goals, collisions, mode='human', obstacles=None, first_spawn=None):
         import gym_art.quadrotor_multi.rendering3d as r3d
 
         if mode == 'human':
             if self.window_target is None:
+
                 self.window_target = r3d.WindowTarget(self.window_w, self.window_h, resizable=self.resizable)
+                if first_spawn is None:
+                    first_spawn = self.window_target.location()
+
+                newx = first_spawn[0]+((self.scene_index % 3) * self.window_w)
+                newy = first_spawn[1]+((self.scene_index // 3) * self.window_h)
+
+                self.window_target.set_location(newx, newy)
+
                 self.keys = self.pygl_window.key.KeyStateHandler()
                 self.window_target.window.push_handlers(self.keys)
                 self.window_target.window.on_key_release = self.window_on_key_release
@@ -358,7 +439,7 @@ class Quadrotor3DSceneMulti:
             self.update_state(all_dynamics=all_dynamics, goals=goals, obstacles=obstacles, collisions=collisions)
             self.cam3p.look_at(*self.chase_cam.look_at())
             r3d.draw(self.scene, self.cam3p, self.window_target)
-            return None
+            return None, first_spawn
         elif mode == 'rgb_array':
             if self.video_target is None:
                 self.video_target = r3d.FBOTarget(self.window_h, self.window_h)
@@ -376,7 +457,7 @@ class Quadrotor3DSceneMulti:
 
         symbol = list(self.keys)
         if key.NUM_0 <= symbol[0] <= key.NUM_9:
-            index = min(symbol[0] - key.NUM_0, self.num_agents-1)
+            index = min(symbol[0] - key.NUM_0, self.num_agents - 1)
             self.camera_drone_index = index
             self.viewpoint = 'local'
             self.chase_cam = ChaseCamera(view_dist=self.diameter * 15)
@@ -394,8 +475,8 @@ class Quadrotor3DSceneMulti:
             goal = np.mean(self.goals, axis=0)
             self.chase_cam.reset(view_dist=2.5, center=goal)
 
-        if not isinstance(self.chase_cam, GlobalCamera):
-            return
+        # if not isinstance(self.chase_cam, GlobalCamera):
+        #     return
 
         if self.keys[key.LEFT]:
             # <- Left Rotation :

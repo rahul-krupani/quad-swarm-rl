@@ -677,6 +677,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
 
+    cost_pos_xy_raw = np.linalg.norm(goal[:2] - dynamics.pos[:2])
+    cost_pos_z_raw = np.linalg.norm(goal[2] - dynamics.pos[2])
+
+
     # # reward for being near the goal
     # cost_near_goal = 0.
     # if dist < 0.2:
@@ -774,6 +778,9 @@ def compute_reward_weighted(dynamics, goal, action, dt, crashed_floor, crashed_w
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
+        "rewraw_pos_xy_raw": -cost_pos_xy_raw,
+        "rewraw_pos_z_raw": -cost_pos_z_raw,
+
         'rewraw_action': -cost_effort_raw,
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
@@ -899,7 +906,10 @@ class QuadrotorSingle:
         ## WARN: If you
         # size of the box from which initial position will be randomly sampled
         # if box_scale > 1.0 then it will also growevery episode
-        self.box = 2.0
+        if self.use_obstacles and self.num_agents == 1:
+            self.box = 0.1
+        else:
+            self.box = 2.0
         self.box_scale = 1.0  # scale the initialbox by this factor eache episode
 
         self.goal = None

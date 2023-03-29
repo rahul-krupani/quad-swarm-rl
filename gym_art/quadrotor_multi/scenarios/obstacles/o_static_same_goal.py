@@ -3,7 +3,7 @@ import numpy as np
 from gym_art.quadrotor_multi.scenarios.obstacles.o_base import Scenario_o_base
 
 
-class Scenario_o_dynamic_same_goal(Scenario_o_base):
+class Scenario_o_static_same_goal(Scenario_o_base):
     def __init__(self, quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
                  quads_formation_size):
         super().__init__(quads_mode, envs, num_agents, room_dims, room_dims_callback, rew_coeff, quads_formation,
@@ -16,17 +16,6 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         pass
 
     def step(self, infos, rewards):
-        tick = self.envs[0].tick
-        if tick % self.control_step_for_sec == 0 and tick > 0:
-            box_size = self.envs[0].box
-            self.formation_center = self.generate_pos_obst_map()
-            self.formation_center[2] = max(0.25, self.formation_center[2])
-
-            self.goals = self.generate_goals(num_agents=self.num_agents, formation_center=self.formation_center,
-                                             layer_dist=0.0)
-            for i, env in enumerate(self.envs):
-                env.goal = self.goals[i]
-
         return infos, rewards
 
     def reset(self, obst_map=None, cell_centers=None):
@@ -49,7 +38,7 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
 
-        self.formation_center = self.generate_pos_obst_map()
+        self.formation_center = self.generate_pos_obst_map(check_surroundings=True)
 
         # Regenerate goals, we don't have to assign goals to the envs,
         # the reset function in quadrotor_multi.py would do that

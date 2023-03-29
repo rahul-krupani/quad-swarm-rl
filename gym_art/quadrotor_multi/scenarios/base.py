@@ -66,8 +66,10 @@ class QuadrotorScenario:
 
             goals = np.array(goals)
             goals += formation_center
+
         elif self.formation == "sphere":
             goals = self.formation_size * np.array(generate_points(num_agents)) + formation_center
+
         elif self.formation.startswith("grid"):
             if num_agents <= self.num_agents_per_layer:
                 dim_1, dim_2 = get_grid_dim_number(num_agents)
@@ -143,7 +145,7 @@ class QuadrotorScenario:
         self.update_formation_and_relate_param()
 
         # Reset formation center
-        self.formation_center = np.array([0.0, 0.0, 0.2])
+        self.formation_center = np.array([0.0, 0.0, 2.0])
 
         # Regenerate goals, we don't have to assign goals to the envs,
         # the reset function in quadrotor_multi.py would do that
