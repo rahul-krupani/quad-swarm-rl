@@ -33,17 +33,17 @@ class TopDownCamera(object):
         self.radius = view_dist
         self.theta = np.pi / 2
         self.phi = 0.0
-        self.center = np.array([0., 0., 9.])
+        self.center = np.array([0., 0., 15.])
 
     def reset(self, view_dist=2.0, center=np.array([0., 0., 5.])):
-        center = np.array([0., 0., 5.])
+        self.center = np.array([0., 0., 15.])
         #self.center = center
 
     def step(self, center=np.array([0., 0., 2.])):
         pass
 
     def look_at(self):
-        up = npa(0, 0, 1)
+        up = npa(0, 1, 0)
         eye = self.center  # pattern center
         center = self.center - np.array([0, 0, 2])
         center = (center/np.linalg.norm(center)) * self.radius
@@ -96,7 +96,7 @@ class Quadrotor3DSceneMulti:
             self, w, h,
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
-            render_speed=1.0, formation_size=-1.0, vis_acc_arrows=None, viz_traces=False, viz_trace_nth_step=1,
+            render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, viz_traces=False, viz_trace_nth_step=1,
             num_obstacles=0, scene_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
@@ -162,7 +162,7 @@ class Quadrotor3DSceneMulti:
         self.camera_zoom_step_size = 0.1 * speed_ratio
         self.camera_mov_step_size = 0.1 * speed_ratio
         self.formation_size = formation_size
-        self.vis_acc_arrows = vis_acc_arrows
+        self.vis_vel_arrows = vis_vel_arrows
         self.viz_traces = viz_traces
         self.viz_trace_nth_step = viz_trace_nth_step
         self.vector_array = [[] for _ in range(num_agents)]
@@ -215,7 +215,7 @@ class Quadrotor3DSceneMulti:
             self.collision_transforms.append(
                 r3d.transform_and_color(np.eye(4), (0, 0, 0, 0.0), collision_sphere)
             )
-            if self.vis_acc_arrows:
+            if self.vis_vel_arrows:
                 self.vec_cyl_transforms.append(
                     r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
                 )
@@ -287,6 +287,10 @@ class Quadrotor3DSceneMulti:
             pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
 
             self.obstacle_transforms[i].set_transform_and_color(r3d.translate(pos_update), (1.0, 0.0, 0.0, 0.1))
+
+    #def create_arrows(self, envs):
+    #
+    #    self.
 
     def create_goals(self):
         import gym_art.quadrotor_multi.rendering3d as r3d
@@ -379,11 +383,11 @@ class Quadrotor3DSceneMulti:
                 matrix = r3d.translate(shadow_pos)
                 self.shadow_transforms[i].set_transform_nocollide(matrix)
 
-                if self.vis_acc_arrows:
+                if self.vis_vel_arrows:
                     if len(self.vector_array[i]) > 10:
                         self.vector_array[i].pop(0)
 
-                    self.vector_array[i].append(dyn.acc)
+                    self.vector_array[i].append(dyn.vel)
 
                     # Get average of the vectors
                     avg_of_vecs = np.mean(self.vector_array[i], axis=0)
@@ -403,8 +407,10 @@ class Quadrotor3DSceneMulti:
 
                     cone_mat = r3d.trans_and_rot(dyn.pos, vector_dir @ dyn.rot) @ cone_trans
 
-                    self.vec_cyl_transforms[i].set_transform_nocollide(cyl_mat)
-                    self.vec_cone_transforms[i].set_transform_nocollide(cone_mat)
+                    self.vec_cyl_transforms[i].set_transform_and_color(cyl_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
+                    self.vec_cone_transforms[i].set_transform_and_color(cone_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
+                    #self.vec_cyl_transforms[i].set_transform_nocollide(cyl_mat)
+                    #self.vec_cone_transforms[i].set_transform_nocollide(cone_mat)
 
                 matrix = r3d.translate(dyn.pos)
                 if collisions['drone'][i] > 0.0 or collisions['ground'][i] > 0.0 or collisions['obstacle'][i] > 0.0:

@@ -668,7 +668,7 @@ def rod(radius, length, sections):
 
 # cone sitting on xy plane pointing +z
 def cone(radius, height, sections):
-    # TODO collision detectoin
+    # TODO collision detection
     v, n = cone_strip(radius, height, sections)
     return TriStrip(v, n)
 
