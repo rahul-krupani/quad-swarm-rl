@@ -96,7 +96,7 @@ class Quadrotor3DSceneMulti:
             self, w, h,
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
-            render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, viz_traces=False, viz_trace_nth_step=1,
+            render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, vis_acc_arrows=True, viz_traces=False, viz_trace_nth_step=1,
             num_obstacles=0, scene_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
@@ -163,6 +163,7 @@ class Quadrotor3DSceneMulti:
         self.camera_mov_step_size = 0.1 * speed_ratio
         self.formation_size = formation_size
         self.vis_vel_arrows = vis_vel_arrows
+        self.vis_acc_arrows = vis_acc_arrows
         self.viz_traces = viz_traces
         self.viz_trace_nth_step = viz_trace_nth_step
         self.vector_array = [[] for _ in range(num_agents)]
@@ -222,6 +223,13 @@ class Quadrotor3DSceneMulti:
                 self.vec_cone_transforms.append(
                     r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
                 )
+            if self.vis_acc_arrows:
+                self.vec_cyl_transforms.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
+                )
+                self.vec_cone_transforms.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
+                )
 
             if self.viz_traces:
                 color = QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,)
@@ -229,7 +237,7 @@ class Quadrotor3DSceneMulti:
                     self.path_transforms[i].append(r3d.transform_and_color(np.eye(4), color, path_sphere))
 
         # TODO make floor size or walls to indicate world_box
-        floor = r3d.ProceduralTexture(0, (0.85, 0.95),
+        floor = r3d.ProceduralTexture(2, (0.85, 0.95),
                                       r3d.rect((100, 100), (0, 100), (0, 100)))
         self.update_goal_diameter()
         self.chase_cam.view_dist = self.diameter * 15
@@ -409,8 +417,33 @@ class Quadrotor3DSceneMulti:
 
                     self.vec_cyl_transforms[i].set_transform_and_color(cyl_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
                     self.vec_cone_transforms[i].set_transform_and_color(cone_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
-                    #self.vec_cyl_transforms[i].set_transform_nocollide(cyl_mat)
-                    #self.vec_cone_transforms[i].set_transform_nocollide(cone_mat)
+
+                if self.vis_acc_arrows:
+                    if len(self.vector_array[i]) > 10:
+                        self.vector_array[i].pop(0)
+
+                    self.vector_array[i].append(dyn.acc)
+
+                    # Get average of the vectors
+                    avg_of_vecs = np.mean(self.vector_array[i], axis=0)
+
+                    # Calculate direction
+                    vector_dir = np.diag(np.sign(avg_of_vecs))
+
+                    # Calculate magnitude and divide by 3 (for aesthetics)
+                    vector_mag = np.linalg.norm(avg_of_vecs) / 3
+
+                    s = np.diag([1.0, 1.0, vector_mag, 1.0])
+
+                    cone_trans = np.eye(4)
+                    cone_trans[:3, 3] = [0.0, 0.0, 0.12 * vector_mag]
+
+                    cyl_mat = r3d.trans_and_rot(dyn.pos, vector_dir @ dyn.rot) @ s
+
+                    cone_mat = r3d.trans_and_rot(dyn.pos, vector_dir @ dyn.rot) @ cone_trans
+
+                    self.vec_cyl_transforms[i].set_transform_and_color(cyl_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
+                    self.vec_cone_transforms[i].set_transform_and_color(cone_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
 
                 matrix = r3d.translate(dyn.pos)
                 if collisions['drone'][i] > 0.0 or collisions['ground'][i] > 0.0 or collisions['obstacle'][i] > 0.0:

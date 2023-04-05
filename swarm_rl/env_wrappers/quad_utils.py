@@ -52,6 +52,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obstacle_size=cfg.quads_obstacle_size, octree_resolution=0.1, use_downwash=cfg.use_downwash,
         collision_obst_falloff_radius=cfg.quads_collision_obst_falloff_radius, obst_shape=cfg.quads_obstacle_shape,
         obstacle_density=cfg.quads_obstacle_density, obstacle_area_length=cfg.quads_obstacle_spawn_area[0],
+        quads_camera_views=cfg.quads_camera_views, vis_acc_arrows=cfg.quads_show_acc, vis_vel_arrows=cfg.quads_show_vel,
         obstacle_area_width=cfg.quads_obstacle_spawn_area[1], obst_obs_type=cfg.quads_obst_obs_type, obst_local_num=cfg.quads_obst_local_num, obstacle_obs_clip=cfg.quads_obst_obs_clip
     )
 

@@ -34,7 +34,8 @@ class QuadrotorEnvMulti(gym.Env):
                  swarm_obs='none', quads_use_numba=False, quads_view_mode='local',
                  collision_force=True, local_obs=-1, collision_hitbox_radius=2.0,
                  collision_falloff_radius=2.0, collision_smooth_max_penalty=10.0, use_replay_buffer=False,
-                 vis_acc_arrows=False, viz_traces=25, viz_trace_nth_step=1,
+                 vis_vel_arrows=False, vis_acc_arrows=False, viz_traces=25, viz_trace_nth_step=1,
+                 quads_camera_views=['topdown', 'chase', 'global'],
                  use_obstacles=False, num_obstacles=0, obstacle_size=0.0, octree_resolution=0.05, use_downwash=False,
                  collision_obst_falloff_radius=3.0, obst_shape="cube", obstacle_density=0.2, obst_obs_type='octomap', obst_local_num=6,
                  obstacle_area_length=6., obstacle_area_width=6., obstacle_obs_clip=1.0
@@ -106,6 +107,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.rel_pos = np.zeros((self.num_agents, self.num_agents, 3))
         self.rel_vel = np.zeros((self.num_agents, self.num_agents, 3))
         self.quads_mode = quads_mode
+        self.quads_camera_views = quads_camera_views
         if obs_repr == 'xyz_vxyz_R_omega':
             obs_self_size = 18
         elif obs_repr == 'xyz_vxyz_R_omega_floor':
@@ -195,6 +197,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # set to true whenever we need to reset the OpenGL scene in render()
         self.reset_scene = False
+        self.vis_vel_arrows = vis_vel_arrows
         self.vis_acc_arrows = vis_acc_arrows
         self.viz_traces = viz_traces
         self.viz_trace_nth_step = viz_trace_nth_step
@@ -339,15 +342,14 @@ class QuadrotorEnvMulti(gym.Env):
 
     def init_scene_multi(self):
         models = tuple(e.dynamics.model for e in self.envs)
-        views = ['topdown']
-        for i in range(len(views)):
+        for i in range(len(self.quads_camera_views)):
             self.scenes.append(Quadrotor3DSceneMulti(
                 models=models,
-                w=600, h=480, resizable=True, viewpoint=views[i],
+                w=600, h=480, resizable=True, viewpoint=self.quads_camera_views[i],
                 room_dims=self.room_dims, num_agents=self.num_agents,
                 render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
-                vis_vel_arrows=True, viz_traces=self.viz_traces, viz_trace_nth_step=self.viz_trace_nth_step,
-                num_obstacles=self.num_obstacles, scene_index=i
+                vis_vel_arrows=self.vis_vel_arrows, vis_acc_arrows=self.vis_acc_arrows, viz_traces=self.viz_traces,
+                viz_trace_nth_step=self.viz_trace_nth_step, num_obstacles=self.num_obstacles, scene_index=i
             ))
 
     def reset(self):

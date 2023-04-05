@@ -53,6 +53,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_local_obs', default=-1, type=int, help='Number of neighbors to consider. -1=all neighbors. 0=blind agents, 0<n<num_agents-1 = nonzero number of agents')
 
     p.add_argument('--quads_view_mode', default='local', type=str, choices=['local', 'global'], help='Choose which kind of view/camera to use')
+    p.add_argument('--quads_show_vel', default=False, type=str2bool, help='Whether to show velocity arrows or not')
+    p.add_argument('--quads_show_acc', default=False, type=str2bool, help='Whether to show acceleration arrows or not')
 
     p.add_argument('--quads_mode', default='static_same_goal', type=str, choices=['static_same_goal', 'static_diff_goal', 'dynamic_same_goal', 'dynamic_diff_goal', 'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations', 'mix', 'tunnel', 'o_uniform_same_goal_spawn', 'mix_test', 'o_test', 'o_random', 'o_dynamic_diff_goal', 'o_dynamic_same_goal', 'o_diagonal', 'o_static_same_goal', 'o_static_diff_goal'], help='Choose which scenario to run. Ep = evader pursuit')
     p.add_argument('--quads_formation', default='circle_horizontal', type=str, choices=['circle_xz_vertical', 'circle_yz_vertical', 'circle_horizontal', 'sphere', 'grid_xz_vertical', 'grid_yz_vertical', 'grid_horizontal'], help='Choose the swarm formation at the goal')
@@ -60,6 +62,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--room_dims', nargs='+', default=[10, 10, 10], type=float, help='Length, width, and height dimensions respectively of the quadrotor env')
     p.add_argument('--quads_obs_repr', default='xyz_vxyz_R_omega', type=str, help='obs space for drone itself')
     p.add_argument('--replay_buffer_sample_prob', default=0.0, type=float, help='Probability at which we sample from it rather than resetting the env. Set to 0.0 (default) to disable the replay. Set to value in (0.0, 1.0] to use replay buffer')
+
+    p.add_argument('--quads_camera_views', nargs='+', default=['topdown', 'chase', 'global'], type=str, choices=['topdown', 'chase', 'side', 'global', 'corner0', 'corner1', 'corner2', 'corner3'], help='The spawning area of obstacles')
 
     p.add_argument('--anneal_collision_steps', default=0.0, type=float, help='Anneal collision penalties over this many steps. Default (0.0) is no annealing')
     p.add_argument('--anneal_collision_sim_steps', default=0.0, type=float, help='Anneal simulation of collision over this many steps. Default (0.0) is no annealing')
