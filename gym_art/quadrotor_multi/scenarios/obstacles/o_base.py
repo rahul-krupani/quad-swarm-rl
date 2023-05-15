@@ -13,7 +13,9 @@ class Scenario_o_base(QuadrotorScenario):
         self.quads_mode = quads_mode
         self.obstacle_map = None
         self.free_space = []
-        self.approch_goal_metric = 0.5
+        self.approch_goal_metric = 1.0
+
+        self.spawn_points = None
 
     def generate_pos(self):
         half_room_length = self.room_dims[0] / 2
@@ -47,21 +49,35 @@ class Scenario_o_base(QuadrotorScenario):
         self.standard_reset(formation_center=self.start_point)
 
     def generate_pos_obst_map(self, check_surroundings=False):
-        idx = np.random.choice(a=len(self.free_space), replace=True)
+        idx = np.random.choice(a=len(self.free_space), replace=False)
         x, y = self.free_space[idx][0], self.free_space[idx][1]
         if check_surroundings:
             surroundings_free = self.check_surroundings(x, y)
             while not surroundings_free:
-                idx = np.random.choice(a=len(self.free_space), replace=True)
+                idx = np.random.choice(a=len(self.free_space), replace=False)
                 x, y = self.free_space[idx][0], self.free_space[idx][1]
                 surroundings_free = self.check_surroundings(x, y)
 
         width = self.obstacle_map.shape[0]
         index = x + (width * y)
         pos_x, pos_y = self.cell_centers[index]
-        z_list_start = np.random.uniform(low=0.5, high=3.0)
+        z_list_start = np.random.uniform(low=0.75, high=3.0)
         # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
         return np.array([pos_x, pos_y, z_list_start])
+
+    def generate_pos_obst_map_2(self, num_agents):
+        ids = np.random.choice(range(len(self.free_space)), num_agents, replace=False)
+
+        generated_points = []
+        for idx in ids:
+            x, y = self.free_space[idx][0], self.free_space[idx][1]
+            width = self.obstacle_map.shape[0]
+            index = x + (width * y)
+            pos_x, pos_y = self.cell_centers[index]
+            z_list_start = np.random.uniform(low=1.0, high=3.0)
+            generated_points.append(np.array([pos_x, pos_y, z_list_start]))
+
+        return np.array(generated_points)
 
     def check_surroundings(self, row, col):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
@@ -78,6 +94,9 @@ class Scenario_o_base(QuadrotorScenario):
             if col > 0:
                 check_pos_x.append(row - 1)
                 check_pos_y.append(col - 1)
+            if col < length - 1:
+                check_pos_x.append(row - 1)
+                check_pos_y.append(col + 1)
         if row < width - 1:
             check_pos_x.append(row + 1)
             check_pos_y.append(col)
@@ -88,6 +107,9 @@ class Scenario_o_base(QuadrotorScenario):
         if col < length - 1:
             check_pos_x.append(row)
             check_pos_y.append(col + 1)
+            if row > 0:
+                check_pos_x.append(row - 1)
+                check_pos_y.append(col + 1)
             if row < length - 1:
                 check_pos_x.append(row + 1)
                 check_pos_y.append(col + 1)

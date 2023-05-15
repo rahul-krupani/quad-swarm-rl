@@ -22,7 +22,7 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
                         min_dist = dist
 
                 g_id = g_i * 3 + g_j
-                quads_sdf_obs[i, g_id] = min_dist - obst_radius
+                quads_sdf_obs[i, g_id] = max(0, min_dist - obst_radius)
 
     return quads_sdf_obs
 
