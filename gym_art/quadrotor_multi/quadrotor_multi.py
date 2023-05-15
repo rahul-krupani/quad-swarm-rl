@@ -389,7 +389,7 @@ class QuadrotorEnvMulti(gym.Env):
             for i in range(self.num_agents):
                 self.scenes.append(Quadrotor3DSceneMulti(
                     models=models,
-                    w=600, h=480, resizable=True, viewpoint='chase',
+                    w=600, h=480, resizable=True, viewpoint='topdownfollow',
                     room_dims=self.room_dims, num_agents=self.num_agents,
                     render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                     vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
