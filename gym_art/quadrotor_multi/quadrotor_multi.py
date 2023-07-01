@@ -191,8 +191,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.use_numba = use_numba
 
         # SBC
-        self.use_sbc = False
-        self.compute_time = 0
+        self.use_sbc = True
 
         # Aerodynamics
         self.use_downwash = use_downwash
@@ -367,7 +366,7 @@ class QuadrotorEnvMulti(gym.Env):
         for i in range(len(self.quads_view_mode)):
             self.scenes.append(Quadrotor3DSceneMulti(
                 models=models,
-                w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
+                w=750, h=600, resizable=True, viewpoint=self.quads_view_mode[i],
                 room_dims=self.room_dims, num_agents=self.num_agents,
                 render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                 vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
@@ -515,15 +514,13 @@ class QuadrotorEnvMulti(gym.Env):
                                         )
                                     )
                                 z += self.obst_size * 0.5
-                self.compute_time += time.time() - t
 
             self.envs[i].rew_coeff = self.rew_coeff
 
             if self.use_sbc:
-                observation, reward, done, info, t = self.envs[i].step(
+                observation, reward, done, info = self.envs[i].step(
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
-                self.compute_time += t
             else:
                 observation, reward, done, info = self.envs[i].step(a)
             # print("num neighbors: ", len(neighbor_descriptions))
