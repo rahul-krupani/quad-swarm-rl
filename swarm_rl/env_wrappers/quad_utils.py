@@ -67,6 +67,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
         # Baselines
         use_sbc=cfg.quads_use_sbc,
+
+        # V Value Visualization
+        visualize_v_value=cfg.visualize_v_value
     )
 
     if use_replay_buffer:

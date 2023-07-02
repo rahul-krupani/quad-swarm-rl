@@ -150,7 +150,7 @@ class QuadrotorSingle:
                                   [self.room_length / 2., self.room_width / 2., self.room_height]])
 
         # REMOVE WHEN CONTROLER IS REMOVED
-        self.use_controller = True
+        self.use_controller = False
 
         if self.use_controller:
             self.init_random_state = False
