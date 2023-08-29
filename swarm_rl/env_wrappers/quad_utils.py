@@ -9,7 +9,6 @@ from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
 from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
 
-
 class AnnealSchedule:
     def __init__(self, coeff_name, final_value, anneal_env_steps):
         self.coeff_name = coeff_name
