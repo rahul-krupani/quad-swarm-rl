@@ -30,9 +30,6 @@ class QuadrotorScenario:
         self.spawn_points = None
         self.approch_goal_metric = 0.5
 
-        # Log metric
-        self.approch_goal_metric = 1.0
-
     def name(self):
         """
         :return: scenario name
@@ -122,7 +119,6 @@ class QuadrotorScenario:
                                              layer_dist=self.layer_dist)
             for i, env in enumerate(self.envs):
                 env.goal = self.goals[i]
-                env.reached_goal = False
 
     def update_formation_and_relate_param(self):
         # Reset formation, num_agents_per_layer, lowest_formation_size, highest_formation_size, formation_size,
