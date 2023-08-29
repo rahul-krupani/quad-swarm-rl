@@ -119,7 +119,7 @@ class Quadrotor3DSceneMulti:
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
             render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, vis_acc_arrows=True, viz_traces=100, viz_trace_nth_step=1,
-            num_obstacles=0, scene_index=0
+            num_obstacles=0, scene_index=0, camera_drone_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
         self.keys = None  # keypress handler, initialized later
@@ -177,7 +177,7 @@ class Quadrotor3DSceneMulti:
         self.goals = None
         self.dynamics = None
         self.num_agents = num_agents
-        self.camera_drone_index = 0
+        self.camera_drone_index = camera_drone_index
 
         # Aux camera moving
         standard_render_speed = 1.0

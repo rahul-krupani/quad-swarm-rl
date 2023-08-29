@@ -32,6 +32,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     rew_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_rewards']
     use_replay_buffer = cfg.replay_buffer_sample_prob > 0.0
 
+    if cfg.visualize_v_value:
+        render_mode = 'rgb_array'
+
     env = QuadrotorEnvMulti(
         num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration, rew_coeff=rew_coeff,
         obs_repr=cfg.quads_obs_repr,
@@ -106,7 +109,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         checkpoints = Learner.get_checkpoints(Learner.checkpoint_dir(cfg, policy_id), f"{name_prefix}_*")
         checkpoint_dict = Learner.load_checkpoint(checkpoints, device)
         actor_critic.load_state_dict(checkpoint_dict["model"])
-        env = V_ValueMapWrapper(env, actor_critic)
+        env = V_ValueMapWrapper(env, actor_critic, render_mode='rgb_array')
 
     return env
 

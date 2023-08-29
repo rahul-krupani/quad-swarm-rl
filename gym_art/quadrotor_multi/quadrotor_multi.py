@@ -37,7 +37,7 @@ class QuadrotorEnvMulti(gym.Env):
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
                  # Rendering
-                 render_mode='human',
+                 render_mode='rgb_array',
                  # V-value
                  visualize_v_value=False
                  ):
@@ -338,7 +338,7 @@ class QuadrotorEnvMulti(gym.Env):
                     room_dims=self.room_dims, num_agents=self.num_agents,
                     render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                     vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                    num_obstacles=self.num_obstacles, scene_index=i
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
                 ))
         else:
             for i in range(len(self.quads_view_mode)):
@@ -348,7 +348,7 @@ class QuadrotorEnvMulti(gym.Env):
                     room_dims=self.room_dims, num_agents=self.num_agents,
                     render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
                     vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                    num_obstacles=self.num_obstacles, scene_index=i
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
                 ))
 
     def reset(self, obst_density=None, obst_size=None):
@@ -824,7 +824,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.simulation_start_time = time.time()
 
         if self.render_mode == "rgb_array":
-            return frame
+            return np.array(frames)
 
     def __deepcopy__(self, memo):
         """OpenGL scene can't be copied naively."""
