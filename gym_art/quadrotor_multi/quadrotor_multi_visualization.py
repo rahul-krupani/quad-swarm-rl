@@ -6,9 +6,6 @@ from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_visualization import ChaseCamera, SideCamera, quadrotor_simple_3dmodel, \
     quadrotor_3dmodel
 
-OBST_COLOR_3 = (0., 0.5, 0.)
-OBST_COLOR_4 = (0., 0.5, 0., 1.)
-
 
 # Global Camera
 class GlobalCamera(object):
@@ -122,7 +119,7 @@ class Quadrotor3DSceneMulti:
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
             render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, vis_acc_arrows=True, viz_traces=100, viz_trace_nth_step=1,
-            num_obstacles=0, scene_index=0, camera_drone_index=0
+            num_obstacles=0, scene_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
         self.keys = None  # keypress handler, initialized later
@@ -137,7 +134,6 @@ class Quadrotor3DSceneMulti:
         self.obs_hw = copy.deepcopy(obs_hw)
         self.walls_visible = walls_visible
         self.scene_index = scene_index
-        self.camera_drone_index = camera_drone_index
 
         self.quad_arm = quad_arm
         self.models = models
@@ -181,6 +177,8 @@ class Quadrotor3DSceneMulti:
         self.goals = None
         self.dynamics = None
         self.num_agents = num_agents
+        self.camera_drone_index = 0
+
         # Aux camera moving
         standard_render_speed = 1.0
         speed_ratio = render_speed / standard_render_speed
@@ -190,7 +188,7 @@ class Quadrotor3DSceneMulti:
         self.formation_size = formation_size
         self.vis_vel_arrows = vis_vel_arrows
         self.vis_acc_arrows = vis_acc_arrows
-        self.viz_traces = 20
+        self.viz_traces = 50
         self.viz_trace_nth_step = viz_trace_nth_step
         self.vector_array = [[] for _ in range(num_agents)]
         self.store_path_every_n = 1
@@ -199,9 +197,9 @@ class Quadrotor3DSceneMulti:
 
     def update_goal_diameter(self):
         if self.quad_arm is not None:
-            self.diameter = 2 * self.quad_arm
+            self.diameter = self.quad_arm
         else:
-            self.diameter = 2 * np.linalg.norm(self.models[0].params['motor_pos']['xyz'][:2])
+            self.diameter = np.linalg.norm(self.models[0].params['motor_pos']['xyz'][:2])
 
         if self.goal_forced_diameter:
             self.goal_diameter = self.goal_forced_diameter
@@ -222,7 +220,7 @@ class Quadrotor3DSceneMulti:
         self.obstacle_transforms, self.vec_cyl_transforms, self.vec_cone_transforms = [], [], []
         self.path_transforms = [[] for _ in range(self.num_agents)]
 
-        # shadow_circle = r3d.circle(0.75 * self.diameter, 32)
+        shadow_circle = r3d.circle(0.75 * self.diameter, 32)
         collision_sphere = r3d.sphere(0.75 * self.diameter, 32)
 
         arrow_cylinder = r3d.cylinder(0.005, 0.12, 16)
@@ -236,9 +234,9 @@ class Quadrotor3DSceneMulti:
                 quad_transform = quadrotor_simple_3dmodel(self.diameter)
             self.quad_transforms.append(quad_transform)
 
-            # self.shadow_transforms.append(
-            #     r3d.transform_and_color(np.eye(4), (0, 0, 0, 0.4), shadow_circle)
-            # )
+            self.shadow_transforms.append(
+                r3d.transform_and_color(np.eye(4), (0, 0, 0, 0.0), shadow_circle)
+            )
             self.collision_transforms.append(
                 r3d.transform_and_color(np.eye(4), (0, 0, 0, 0.0), collision_sphere)
             )
@@ -270,7 +268,7 @@ class Quadrotor3DSceneMulti:
 
         self.create_goals()
 
-        bodies = []
+        bodies = [r3d.BackToFront([floor, st]) for st in self.shadow_transforms]
         bodies.extend(self.goal_transforms)
         bodies.extend(self.quad_transforms)
         bodies.extend(self.vec_cyl_transforms)

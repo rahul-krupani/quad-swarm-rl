@@ -19,7 +19,7 @@ References:
 """
 import copy
 
-from gym.utils import seeding
+from gymnasium.utils import seeding
 
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
@@ -488,7 +488,7 @@ class QuadrotorSingle:
     def reset(self):
         return self._reset()
 
-    def render(self, mode='human', **kwargs):
+    def render(self, **kwargs):
         """This class is only meant to be used as a component of QuadMultiEnv."""
         raise NotImplementedError()
 

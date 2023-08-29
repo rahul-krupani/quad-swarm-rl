@@ -3,7 +3,7 @@ import time
 from collections import deque
 from copy import deepcopy
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from gym_art.quadrotor_multi.aerodynamics.downwash import perform_downwash
@@ -19,16 +19,15 @@ from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSce
 from gym_art.quadrotor_multi.quadrotor_single import QuadrotorSingle
 from gym_art.quadrotor_multi.quadrotor_control import NominalSBC
 from gym_art.quadrotor_multi.scenarios.mix import create_scenario
-from gym_art.quadrotor_multi.scenarios.utils import QUADS_MODE_LIST, QUADS_MODE_LIST_OBSTACLES
 
 
 class QuadrotorEnvMulti(gym.Env):
-    def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, sim_freq, sim_steps,
+    def __init__(self, num_agents, ep_time, rew_coeff, obs_repr,
                  # Neighbor
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
 
                  # Obstacle
-                 use_obstacles, obst_density, obst_size, obst_spawn_area, use_obst_min_gap, obst_min_gap,
+                 use_obstacles, obst_density, obst_size, obst_spawn_area,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, use_numba, quads_mode, room_dims, use_replay_buffer, quads_view_mode,
@@ -38,12 +37,14 @@ class QuadrotorEnvMulti(gym.Env):
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
+                 # Rendering
+                 render_mode='human',
 
                  # Baselines
-                 use_sbc,
+                 use_sbc=False,
 
                  # V Value Visualization
-                 visualize_v_value
+                 visualize_v_value=False
                  ):
         super().__init__()
 
@@ -73,7 +74,7 @@ class QuadrotorEnvMulti(gym.Env):
                 dynamics_randomize_every=dynamics_randomize_every, dyn_sampler_1=dyn_sampler_1,
                 raw_control=raw_control, raw_control_zero_middle=raw_control_zero_middle, sense_noise=sense_noise,
                 init_random_state=init_random_state, obs_repr=obs_repr, ep_time=ep_time, room_dims=room_dims,
-                use_numba=use_numba, sim_freq=sim_freq, sim_steps=sim_steps,
+                use_numba=use_numba,
                 # Neighbor
                 num_agents=num_agents,
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
@@ -91,7 +92,6 @@ class QuadrotorEnvMulti(gym.Env):
         # Aux variables
         self.quad_arm = self.envs[0].dynamics.arm
         self.control_freq = self.envs[0].control_freq
-        self.sim_steps = sim_steps
         self.control_dt = 1.0 / self.control_freq
         self.pos = np.zeros([self.num_agents, 3])
         self.vel = np.zeros([self.num_agents, 3])
@@ -122,28 +122,24 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.clip_neighbor_space_length = self.num_use_neighbor_obs * neighbor_obs_size
         self.clip_neighbor_space_min_box = self.observation_space.low[
-            obs_self_size:obs_self_size + self.clip_neighbor_space_length]
+                                           obs_self_size:obs_self_size + self.clip_neighbor_space_length]
         self.clip_neighbor_space_max_box = self.observation_space.high[
-            obs_self_size:obs_self_size + self.clip_neighbor_space_length]
+                                           obs_self_size:obs_self_size + self.clip_neighbor_space_length]
 
         # Obstacles
         self.use_obstacles = use_obstacles
         self.obstacles = None
         self.num_obstacles = 0
         if self.use_obstacles:
-            self.obst_pos_arr = []
             self.prev_obst_quad_collisions = []
             self.obst_quad_collisions_per_episode = 0
             self.obst_quad_collisions_after_settle = 0
             self.curr_quad_col = []
             self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
-            self.num_obstacles = int(
-                obst_density * obst_spawn_area[0] * obst_spawn_area[1])
+            self.num_obstacles = int(obst_density * obst_spawn_area[0] * obst_spawn_area[1])
             self.obst_map = None
             self.obst_size = obst_size
-            self.use_obst_min_gap = use_obst_min_gap
-            self.obst_min_gap = obst_min_gap
 
             # Log more info
             self.distance_to_goal_3_5 = 0
@@ -201,6 +197,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Rendering
         # # set to true whenever we need to reset the OpenGL scene in render()
+        self.render_mode =render_mode
         self.quads_render = quads_render
         self.visualize_v_value = visualize_v_value
         self.render_speed = 1.0
@@ -217,33 +214,11 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
-        self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
-        self.flying_trajectory = [[] for _ in range(len(self.envs))]
-        self.prev_pos = [np.zeros(3) for _ in range(len(self.envs))]
-
-        # # Log vel
-        # self.episode_vel, self.episode_vel_max: consider episode, start from step 0
-        # & no collision drones, drone & obst, drone & wall
-        self.episode_vel = [[] for _ in range(len(self.envs))]
-        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
-        # roll, pitch, yaw rate (to show the agility)
-        # roll
-        self.roll_rate = [[] for _ in range(self.num_agents)]
-        self.roll_rate_max = np.zeros(self.num_agents)
-        # pitch
-        self.pitch_rate = [[] for _ in range(self.num_agents)]
-        self.pitch_rate_max = np.zeros(self.num_agents)
-        # yaw
-        self.yaw_rate = [[] for _ in range(self.num_agents)]
-        self.yaw_rate_max = np.zeros(self.num_agents)
-        # body rate
-        self.body_rate = [[] for _ in range(self.num_agents)]
-        self.body_rate_max = np.zeros(self.num_agents)
 
         # Others
         self.apply_collision_force = True
@@ -397,11 +372,10 @@ class QuadrotorEnvMulti(gym.Env):
         if obst_size:
             self.obst_size = obst_size
 
-        self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm)
-
         # Scenario reset
         if self.use_obstacles:
-            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()
+            self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm)
+            self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
             self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
         else:
             self.scenario.reset()
@@ -414,7 +388,10 @@ class QuadrotorEnvMulti(gym.Env):
 
         for i, e in enumerate(self.envs):
             e.goal = self.scenario.goals[i]
-            e.spawn_point = self.scenario.spawn_points[i]
+            if self.scenario.spawn_points is None:
+                e.spawn_point = self.scenario.goals[i]
+            else:
+                e.spawn_point = self.scenario.spawn_points[i]
             e.rew_coeff = self.rew_coeff
 
             observation = e.reset()
@@ -428,7 +405,7 @@ class QuadrotorEnvMulti(gym.Env):
         # Obstacles
         if self.use_obstacles:
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
-            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obst_pos_arr)
+            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
             self.distance_to_goal_3_5 = 0
@@ -451,29 +428,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
-        self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
-        self.flying_trajectory = [[] for _ in range(len(self.envs))]
-        self.prev_pos = [self.envs[i].dynamics.pos for i in range(len(self.envs))]
-        # roll, pitch, yaw rate (to show the agility)
-        # roll
-        self.roll_rate = [[] for _ in range(self.num_agents)]
-        self.roll_rate_max = np.zeros(self.num_agents)
-        # pitch
-        self.pitch_rate = [[] for _ in range(self.num_agents)]
-        self.pitch_rate_max = np.zeros(self.num_agents)
-        # yaw
-        self.yaw_rate = [[] for _ in range(self.num_agents)]
-        self.yaw_rate_max = np.zeros(self.num_agents)
-        # bodyrate
-        self.body_rate = [[] for _ in range(self.num_agents)]
-        self.body_rate_max = np.zeros(self.num_agents)
-
-        # # Log vel
-        # self.episode_vel, self.episode_vel_max: consider episode, start from step 0
-        # & no collision drones, drone & obst, drone & wall
-        self.episode_vel = [[] for _ in range(len(self.envs))]
-        self.episode_vel_max = [0.0 for _ in range(len(self.envs))]
 
         # Rendering
         if self.quads_render:
@@ -663,39 +618,11 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
 
             self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
-
-            vel_agent_i = np.linalg.norm(self.envs[i].dynamics.vel)
-            tmp_roll_i, tmp_pitch_i, tmp_yaw_i = np.abs(np.array(self.envs[i].dynamics.omega))
-            omega_agent_i = np.linalg.norm(self.envs[i].dynamics.omega)
-            if not self.reached_goal[i]:
-                # vel
-                self.episode_vel[i].append(vel_agent_i)
-                # roll, pitch, yaw
-                self.roll_rate[i].append(tmp_roll_i)
-                self.pitch_rate[i].append(tmp_pitch_i)
-                self.yaw_rate[i].append(tmp_yaw_i)
-                # body rate
-                self.body_rate[i].append(omega_agent_i)
-
-            if vel_agent_i > self.episode_vel_max[i]:
-                self.episode_vel_max[i] = vel_agent_i
-            if tmp_roll_i > self.roll_rate_max[i]:
-                self.roll_rate_max[i] = tmp_roll_i
-            if tmp_pitch_i > self.pitch_rate_max[i]:
-                self.pitch_rate_max[i] = tmp_pitch_i
-            if tmp_yaw_i > self.yaw_rate_max[i]:
-                self.yaw_rate_max[i] = tmp_yaw_i
-            if omega_agent_i > self.body_rate_max[i]:
-                self.body_rate_max[i] = omega_agent_i
-
-            if len(self.distance_to_goal[i]) >= 5 and np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric \
+            if len(self.distance_to_goal[i]) >= 5 and \
+                    np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric \
                     and not self.reached_goal[i]:
                 self.reached_goal[i] = True
-                # tick is calculated by control_dt, not dt
-                self.flying_time[i] = self.envs[i].tick * self.control_dt
 
-            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
-            self.prev_pos[i] = self.envs[i].dynamics.pos
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
 
@@ -770,34 +697,12 @@ class QuadrotorEnvMulti(gym.Env):
                 obst_coll = [1.0 if i < 0 else 0.0 for i in rew_obst_quad_collisions_raw]
             else:
                 obst_coll = [0.0 for _ in range(self.num_agents)]
-
             self.all_collisions = {'drone': drone_col_matrix, 'ground': ground_collisions,
                                    'obstacle': obst_coll}
 
         # 7. DONES
         if any(dones):
             scenario_name = self.scenario.name()[9:]
-            self.distance_to_goal = np.array(self.distance_to_goal)
-            self.flying_time = np.array(self.flying_time)
-            self.reached_goal = np.array(self.reached_goal)
-
-            # With different length, need to specify with dtype=object
-            self.flying_trajectory = np.array(self.flying_trajectory)
-            self.episode_vel = np.array(self.episode_vel, dtype=object)
-            self.episode_vel_max = np.array(self.episode_vel_max)
-
-            self.roll_rate = np.array(self.roll_rate, dtype=object)
-            self.roll_rate_max = np.array(self.roll_rate_max)
-
-            self.pitch_rate = np.array(self.pitch_rate, dtype=object)
-            self.pitch_rate_max = np.array(self.pitch_rate_max)
-
-            self.yaw_rate = np.array(self.yaw_rate, dtype=object)
-            self.yaw_rate_max = np.array(self.yaw_rate_max)
-
-            self.body_rate = np.array(self.body_rate, dtype=object)
-            self.body_rate_max = np.array(self.body_rate_max)
-
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
@@ -805,6 +710,8 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_obst_replay': self.obst_quad_collisions_per_episode,
                     }
                 else:
+                    self.distance_to_goal = np.array(self.distance_to_goal)
+                    self.reached_goal = np.array(self.reached_goal)
                     infos[i]['episode_extra_stats'] = {
                         'num_collisions': self.collisions_per_episode,
                         'num_collisions_with_room': self.collisions_room_per_episode,
@@ -851,41 +758,6 @@ class QuadrotorEnvMulti(gym.Env):
                             self.distance_to_goal_5
 
             if not self.saved_in_replay_buffer:
-                # base_no_collision_flag
-                # 1. no collisions b/w drones
-                # 2. no collisions drones & obstacles
-                base_no_collision_flag = True
-                if self.collisions_after_settle > 0:
-                    base_no_collision_flag = False
-
-                if self.use_obstacles:
-                    if self.obst_quad_collisions_after_settle > 0:
-                        base_no_collision_flag = False
-
-                # base_success_flag = base_no_collision_flag & reached_goal
-                if all(self.reached_goal):
-                    approach_goal_flag = True
-                else:
-                    approach_goal_flag = False
-
-                base_success_flag = base_no_collision_flag & approach_goal_flag
-
-                # mid_success_flag = base_success_flag & no_col_wall_ceil_flag
-                if self.collisions_wall_per_episode == 0 or self.collisions_ceiling_per_episode == 0:
-                    no_col_wall_ceil_flag = True
-                else:
-                    no_col_wall_ceil_flag = False
-
-                mid_success_flag = base_success_flag & no_col_wall_ceil_flag
-
-                # full_success_flag = base_success_flag & no_col_wall_ceil_flag * no_col_floor_flag
-                if self.collisions_floor_per_episode == 0:
-                    no_col_floor_flag = True
-                else:
-                    no_col_floor_flag = False
-
-                full_success_flag = mid_success_flag & no_col_floor_flag
-
                 # agent_success_rate: base_success_rate, based on per agent
                 # 0: collision; 1: no collision
                 agent_col_flag_list = np.logical_and(self.agent_col_agent, self.agent_col_obst)
@@ -906,117 +778,22 @@ class QuadrotorEnvMulti(gym.Env):
                 # agent_obst_col_rate
                 agent_obst_col_ratio = 1.0 - np.sum(self.agent_col_obst) / self.num_agents
 
-                # agent flying trajectory and time
-                if agent_success_ratio > 0:
-                    # Flying traj
-                    agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
-                    agent_success_traj_mean = np.mean(np.sum(agent_success_flying_trajectories, axis=-1))
-                    # Flying time
-                    agent_success_flying_time_mean = np.mean(self.flying_time[agent_success_flag_list])
-                    tmp_success_flying_time = self.flying_time[agent_success_flag_list] / self.control_dt
-                    # Vel
-                    agent_success_vel_arr = self.episode_vel[agent_success_flag_list]
-                    agent_success_vel_arr_sum = [np.sum(vel_arr_item) / tmp_success_flying_time[i] for i, vel_arr_item in enumerate(agent_success_vel_arr)]
-                    agent_success_vel_mean = np.mean(agent_success_vel_arr_sum)
-
-                    agent_success_vel_max = np.max(self.episode_vel_max[agent_success_flag_list])
-                    # Roll
-                    agent_success_roll_arr = self.roll_rate[agent_success_flag_list]
-                    agent_success_roll_arr_sum = [np.sum(roll_arr_item) / tmp_success_flying_time[i] for i, roll_arr_item in enumerate(agent_success_roll_arr)]
-                    agent_success_roll_mean = np.mean(agent_success_roll_arr_sum)
-
-                    agent_success_roll_max = np.max(self.roll_rate_max[agent_success_flag_list])
-                    # Pitch
-                    agent_success_pitch_arr = self.pitch_rate[agent_success_flag_list]
-                    agent_success_pitch_arr_sum = [np.sum(pitch_arr_item) / tmp_success_flying_time[i] for i, pitch_arr_item in enumerate(agent_success_pitch_arr)]
-                    agent_success_pitch_mean = np.mean(agent_success_pitch_arr_sum)
-
-                    agent_success_pitch_max = np.max(self.pitch_rate_max[agent_success_flag_list])
-                    # Yaw
-                    agent_success_yaw_arr = self.yaw_rate[agent_success_flag_list]
-                    agent_success_yaw_arr_sum = [np.sum(yaw_arr_item) / tmp_success_flying_time[i] for i, yaw_arr_item in enumerate(agent_success_yaw_arr)]
-                    agent_success_yaw_mean = np.mean(agent_success_yaw_arr_sum)
-
-                    agent_success_yaw_max = np.max(self.yaw_rate_max[agent_success_flag_list])
-                    # Body rate
-                    agent_success_body_rate_arr = self.body_rate[agent_success_flag_list]
-                    agent_success_body_rate_arr_sum = [np.sum(body_rate_arr_item) / tmp_success_flying_time[i] for i, body_rate_arr_item in enumerate(agent_success_body_rate_arr)]
-                    agent_success_body_rate_mean = np.mean(agent_success_body_rate_arr_sum)
-
-                    agent_success_body_rate_max = np.max(self.body_rate_max[agent_success_flag_list])
-
                 for i in range(len(infos)):
-                    # base_no_collision_rate
-                    infos[i]['episode_extra_stats']['metric/base_no_collision_rate'] = float(base_no_collision_flag)
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/base_no_collision_rate'] = float(base_no_collision_flag)
-
-                    # base_success_rate
-                    infos[i]['episode_extra_stats']['metric/base_success_rate'] = float(base_success_flag)
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/base_success_rate'] = float(base_success_flag)
-
-                    # mid_success_rate
-                    infos[i]['episode_extra_stats']['metric/mid_success_rate'] = float(mid_success_flag)
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/mid_success_rate'] = float(mid_success_flag)
-
-                    # full_success_rate
-                    infos[i]['episode_extra_stats']['metric/full_success_rate'] = float(full_success_flag)
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/full_success_rate'] = float(full_success_flag)
-
-                    # agent_deadlock_rate
-                    infos[i]['episode_extra_stats']['metric/agent_deadlock_rate'] = agent_deadlock_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_deadlock_rate'] = agent_deadlock_ratio
-
                     # agent_success_rate
                     infos[i]['episode_extra_stats']['metric/agent_success_rate'] = agent_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = agent_success_ratio
-
+                    # agent_deadlock_rate
+                    infos[i]['episode_extra_stats']['metric/agent_deadlock_rate'] = agent_deadlock_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/agent_deadlock_rate'] = agent_deadlock_ratio
                     # agent_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_col_rate'] = agent_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_col_rate'] = agent_col_ratio
-
                     # agent_neighbor_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
-
                     # agent_obst_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
-
-                    # agent flying trajectories
-                    if agent_success_ratio > 0:
-                        infos[i]['episode_extra_stats']['flying_trajectory'] = agent_success_traj_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_trajectory'] = agent_success_traj_mean
-
-                        # agent flying time
-                        infos[i]['episode_extra_stats']['flying_time'] = agent_success_flying_time_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_time'] = agent_success_flying_time_mean
-
-                        # agent vel
-                        infos[i]['episode_extra_stats']['agent_success_vel_mean'] = agent_success_vel_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_vel_mean'] = agent_success_vel_mean
-                        infos[i]['episode_extra_stats']['agent_success_vel_max'] = agent_success_vel_max
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_vel_max'] = agent_success_vel_max
-
-                        # agent roll, pitch, yaw, body_rate
-                        infos[i]['episode_extra_stats']['agent_success_roll_mean'] = agent_success_roll_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_roll_mean'] = agent_success_roll_mean
-                        infos[i]['episode_extra_stats']['agent_success_roll_max'] = agent_success_roll_max
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_roll_max'] = agent_success_roll_max
-
-                        infos[i]['episode_extra_stats']['agent_success_pitch_mean'] = agent_success_pitch_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_pitch_mean'] = agent_success_pitch_mean
-                        infos[i]['episode_extra_stats']['agent_success_pitch_max'] = agent_success_pitch_max
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_pitch_max'] = agent_success_pitch_max
-
-                        infos[i]['episode_extra_stats']['agent_success_yaw_mean'] = agent_success_yaw_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_yaw_mean'] = agent_success_yaw_mean
-                        infos[i]['episode_extra_stats']['agent_success_yaw_max'] = agent_success_yaw_max
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_yaw_max'] = agent_success_yaw_max
-
-                        infos[i]['episode_extra_stats']['agent_success_body_rate_mean'] = agent_success_body_rate_mean
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_mean'] = agent_success_body_rate_mean
-                        infos[i]['episode_extra_stats']['agent_success_body_rate_max'] = agent_success_body_rate_max
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_max'] = agent_success_body_rate_max
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
@@ -1024,7 +801,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         return obs, rewards, dones, infos
 
-    def render(self, mode='human', verbose=False):
+    def render(self, verbose=False):
         models = tuple(e.dynamics.model for e in self.envs)
 
         if len(self.scenes) == 0:
@@ -1068,7 +845,7 @@ class QuadrotorEnvMulti(gym.Env):
         for i in range(len(self.scenes)):
             frame, first_spawn = self.scenes[i].render_chase(all_dynamics=self.all_dynamics(), goals=goals,
                                                              collisions=self.all_collisions,
-                                                             mode=mode, obstacles=self.obstacles,
+                                                             mode=self.render_mode, obstacles=self.obstacles,
                                                              first_spawn=first_spawn)
             frames.append(frame)
         # Update the formation size of the scenario
@@ -1085,7 +862,7 @@ class QuadrotorEnvMulti(gym.Env):
         time_to_sleep = desired_time_between_frames - simulation_time - render_time
 
         # wait so we don't simulate/render faster than realtime
-        if mode == "human" and time_to_sleep > 0:
+        if self.render_mode == "human" and time_to_sleep > 0:
             time.sleep(time_to_sleep)
 
         if simulation_time + render_time > desired_time_between_frames:
@@ -1109,8 +886,8 @@ class QuadrotorEnvMulti(gym.Env):
 
         self.simulation_start_time = time.time()
 
-        if mode == "rgb_array":
-            return np.array(frames)
+        if self.render_mode == "rgb_array":
+            return frame
 
     def __deepcopy__(self, memo):
         """OpenGL scene can't be copied naively."""
