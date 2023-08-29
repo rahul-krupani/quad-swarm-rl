@@ -37,7 +37,9 @@ class QuadrotorEnvMulti(gym.Env):
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
                  # Rendering
-                 render_mode='human'
+                 render_mode='human',
+                 # V-value
+                 visualize_v_value=False
                  ):
         super().__init__()
 
@@ -184,6 +186,8 @@ class QuadrotorEnvMulti(gym.Env):
         # # set to true whenever we need to reset the OpenGL scene in render()
         self.render_mode =render_mode
         self.quads_render = quads_render
+        self.visualize_v_value = visualize_v_value
+        self.render_speed = 1.0
         self.scenes = []
         if self.quads_render:
             self.reset_scene = False
@@ -326,15 +330,26 @@ class QuadrotorEnvMulti(gym.Env):
 
     def init_scene_multi(self):
         models = tuple(e.dynamics.model for e in self.envs)
-        for i in range(len(self.quads_view_mode)):
-            self.scenes.append(Quadrotor3DSceneMulti(
-                models=models,
-                w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
-                room_dims=self.room_dims, num_agents=self.num_agents,
-                render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
-                vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                num_obstacles=self.num_obstacles, scene_index=i
-            ))
+        if self.visualize_v_value:
+            for i in range(self.num_agents):
+                self.scenes.append(Quadrotor3DSceneMulti(
+                    models=models,
+                    w=600, h=480, resizable=True, viewpoint='topdownfollow',
+                    room_dims=self.room_dims, num_agents=self.num_agents,
+                    render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
+                    vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                ))
+        else:
+            for i in range(len(self.quads_view_mode)):
+                self.scenes.append(Quadrotor3DSceneMulti(
+                    models=models,
+                    w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
+                    room_dims=self.room_dims, num_agents=self.num_agents,
+                    render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
+                    vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                ))
 
     def reset(self, obst_density=None, obst_size=None):
         obs, rewards, dones, infos = [], [], [], []

@@ -62,6 +62,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sense_noise=sense_noise, init_random_state=False,
         # Rendering
         render_mode=render_mode,
+        # V Value Visualization
+        visualize_v_value=cfg.visualize_v_value
     )
 
     if use_replay_buffer:
