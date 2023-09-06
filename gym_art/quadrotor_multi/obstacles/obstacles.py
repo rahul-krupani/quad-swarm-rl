@@ -9,7 +9,7 @@ class MultiObstacles:
         self.size = obstacle_size
         self.obstacle_radius = obstacle_size / 2.0
         self.quad_radius = quad_radius
-        self.room_dims = room_dims
+        self.room_dims = np.array(room_dims)
         self.pos_arr = []
         self.resolution = 0.1
 
