@@ -45,6 +45,8 @@ class QuadrotorDynamics:
         self.dynamics_simplification = dynamics_simplification
         # cw = 1 ; ccw = -1 [ccw, cw, ccw, cw]
         self.prop_ccw = np.array([-1., 1., -1., 1.])
+        self.sbc_acc = np.array([0., 0., 0.])
+        self.rl_acc = np.array([0., 0., 0.])
         # Reference: https://docs.google.com/document/d/1wZMZQ6jilDbj0JtfeYt0TonjxoMPIgHwYbrFrMNls84/edit
         self.omega_max = 40.  # rad/s The CF sensor can only show 35 rad/s (2000 deg/s), we allow some extra
         self.vxyz_max = 3.  # m/s

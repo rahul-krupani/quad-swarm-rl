@@ -40,7 +40,9 @@ class QuadrotorEnvMulti(gym.Env):
                  # Rendering
                  render_mode='human',
                  # SBC specific
-                 sbc_radius=0.1, sbc_aggressive=0.1
+                 sbc_radius=0.1, sbc_aggressive=0.1,
+                 # V-value
+                 visualize_v_value=False
                  ):
         super().__init__()
 
@@ -181,9 +183,10 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Rendering
         # # set to true whenever we need to reset the OpenGL scene in render()
-        self.render_mode = render_mode
+        self.render_mode = 'human'
         self.quads_render = quads_render
         self.scenes = []
+        self.visualize_v_value = visualize_v_value
         if self.quads_render:
             self.reset_scene = False
             self.simulation_start_time = 0
@@ -329,15 +332,28 @@ class QuadrotorEnvMulti(gym.Env):
 
     def init_scene_multi(self):
         models = tuple(e.dynamics.model for e in self.envs)
-        for i in range(len(self.quads_view_mode)):
-            self.scenes.append(Quadrotor3DSceneMulti(
-                models=models,
-                w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
-                room_dims=self.room_dims, num_agents=self.num_agents,
-                render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
-                vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                num_obstacles=self.num_obstacles, scene_index=i
-            ))
+        if self.visualize_v_value:
+            for i in range(self.num_agents):
+                self.scenes.append(Quadrotor3DSceneMulti(
+                    models=models,
+                    w=600, h=480, resizable=True, viewpoint='topdownfollow',
+                    room_dims=self.room_dims, num_agents=self.num_agents,
+                    render_speed=self.render_speed, formation_size=self.quads_formation_size,
+                    obstacles=self.obstacles,
+                    vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                ))
+        else:
+            for i in range(len(self.quads_view_mode)):
+                self.scenes.append(Quadrotor3DSceneMulti(
+                    models=models,
+                    w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
+                    room_dims=self.room_dims, num_agents=self.num_agents,
+                    render_speed=self.render_speed, formation_size=self.quads_formation_size,
+                    obstacles=self.obstacles,
+                    vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
+                    num_obstacles=self.num_obstacles, scene_index=i, camera_drone_index=i
+                ))
 
     def reset(self, obst_density=None, obst_size=None):
         obs, rewards, dones, infos = [], [], [], []
@@ -838,7 +854,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.simulation_start_time = time.time()
 
         if self.render_mode == "rgb_array":
-            return frame
+            return np.array(frames)
 
     def __deepcopy__(self, memo):
         """OpenGL scene can't be copied naively."""

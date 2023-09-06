@@ -119,7 +119,7 @@ class Quadrotor3DSceneMulti:
             quad_arm=None, models=None, walls_visible=True, resizable=True, goal_diameter=None,
             viewpoint='chase', obs_hw=None, room_dims=(10, 10, 10), num_agents=8, obstacles=None,
             render_speed=1.0, formation_size=-1.0, vis_vel_arrows=True, vis_acc_arrows=True, viz_traces=100, viz_trace_nth_step=1,
-            num_obstacles=0, scene_index=0
+            num_obstacles=0, scene_index=0, camera_drone_index=0
     ):
         self.pygl_window = __import__('pyglet.window', fromlist=['key'])
         self.keys = None  # keypress handler, initialized later
@@ -177,7 +177,7 @@ class Quadrotor3DSceneMulti:
         self.goals = None
         self.dynamics = None
         self.num_agents = num_agents
-        self.camera_drone_index = 0
+        self.camera_drone_index = camera_drone_index
 
         # Aux camera moving
         standard_render_speed = 1.0
@@ -187,10 +187,12 @@ class Quadrotor3DSceneMulti:
         self.camera_mov_step_size = 0.1 * speed_ratio
         self.formation_size = formation_size
         self.vis_vel_arrows = vis_vel_arrows
-        self.vis_acc_arrows = vis_acc_arrows
+        self.vis_acc_arrows = True
+        self.vis_sbc_arrows = True
         self.viz_traces = 50
         self.viz_trace_nth_step = viz_trace_nth_step
         self.vector_array = [[] for _ in range(num_agents)]
+        self.acc_array = [[] for _ in range(num_agents)]
         self.store_path_every_n = 1
         self.store_path_count = 0
         self.path_store = [[] for _ in range(num_agents)]
@@ -218,6 +220,7 @@ class Quadrotor3DSceneMulti:
 
         self.quad_transforms, self.shadow_transforms, self.goal_transforms, self.collision_transforms = [], [], [], []
         self.obstacle_transforms, self.vec_cyl_transforms, self.vec_cone_transforms = [], [], []
+        self.acc_cyl_transforms, self.acc_cone_transforms = [], []
         self.path_transforms = [[] for _ in range(self.num_agents)]
 
         shadow_circle = r3d.circle(0.75 * self.diameter, 32)
@@ -254,6 +257,13 @@ class Quadrotor3DSceneMulti:
                 self.vec_cone_transforms.append(
                     r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
                 )
+            if self.vis_sbc_arrows:
+                self.acc_cyl_transforms.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
+                )
+                self.acc_cone_transforms.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
+                )
 
             if self.viz_traces:
                 color = QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,)
@@ -273,6 +283,8 @@ class Quadrotor3DSceneMulti:
         bodies.extend(self.quad_transforms)
         bodies.extend(self.vec_cyl_transforms)
         bodies.extend(self.vec_cone_transforms)
+        bodies.extend(self.acc_cyl_transforms)
+        bodies.extend(self.acc_cone_transforms)
         for path in self.path_transforms:
             bodies.extend(path)
         # visualize walls of the room if True
@@ -356,6 +368,7 @@ class Quadrotor3DSceneMulti:
         self.goals = goals
         self.dynamics = dynamics
         self.vector_array = [[] for _ in range(self.num_agents)]
+        self.acc_array = [[] for _ in range(self.num_agents)]
         self.path_store = [[] for _ in range(self.num_agents)]
 
         if self.viewpoint == 'global':
@@ -447,7 +460,9 @@ class Quadrotor3DSceneMulti:
                     if len(self.vector_array[i]) > 10:
                         self.vector_array[i].pop(0)
 
-                    self.vector_array[i].append(dyn.acc)
+                    self.vector_array[i].append(dyn.rl_acc)
+                    if np.sum(dyn.rl_acc):
+                        print()
 
                     # Get average of the vectors
                     avg_of_vecs = np.mean(self.vector_array[i], axis=0)
@@ -456,7 +471,7 @@ class Quadrotor3DSceneMulti:
                     vector_dir = np.diag(np.sign(avg_of_vecs))
 
                     # Calculate magnitude and divide by 3 (for aesthetics)
-                    vector_mag = np.linalg.norm(avg_of_vecs) / 3
+                    vector_mag = np.linalg.norm(avg_of_vecs)
 
                     s = np.diag([1.0, 1.0, vector_mag, 1.0])
 
@@ -469,6 +484,35 @@ class Quadrotor3DSceneMulti:
 
                     self.vec_cyl_transforms[i].set_transform_and_color(cyl_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
                     self.vec_cone_transforms[i].set_transform_and_color(cone_mat, QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,))
+
+                if self.vis_sbc_arrows:
+                    if len(self.acc_array[i]) > 10:
+                        self.acc_array[i].pop(0)
+
+                    self.acc_array[i].append(dyn.sbc_acc)
+                    if np.sum(dyn.sbc_acc):
+                        print()
+
+                    # Get average of the vectors
+                    avg_of_vecs = np.mean(self.acc_array[i], axis=0)
+
+                    # Calculate direction
+                    vector_dir = np.diag(np.sign(avg_of_vecs))
+
+                    # Calculate magnitude and divide by 3 (for aesthetics)
+                    vector_mag = np.linalg.norm(avg_of_vecs)
+
+                    s = np.diag([1.0, 1.0, vector_mag, 1.0])
+
+                    cone_trans = np.eye(4)
+                    cone_trans[:3, 3] = [0.0, 0.0, 0.12 * vector_mag]
+
+                    cyl_mat = r3d.trans_and_rot(dyn.pos, vector_dir @ dyn.rot) @ s
+
+                    cone_mat = r3d.trans_and_rot(dyn.pos, vector_dir @ dyn.rot) @ cone_trans
+
+                    self.acc_cyl_transforms[i].set_transform_and_color(cyl_mat, QUAD_COLOR[(i+1) % len(QUAD_COLOR)] + (1.0,))
+                    self.acc_cone_transforms[i].set_transform_and_color(cone_mat, QUAD_COLOR[(i+1) % len(QUAD_COLOR)] + (1.0,))
 
                 matrix = r3d.translate(dyn.pos)
                 if collisions['drone'][i] > 0.0 or collisions['ground'][i] > 0.0 or collisions['obstacle'][i] > 0.0:

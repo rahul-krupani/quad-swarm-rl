@@ -36,6 +36,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sampler_1 = dict(type='RelativeSampler', noise_ratio=dyn_randomization_ratio, sampler='normal')
 
     sense_noise = 'default'
+    if cfg.visualize_v_value:
+        render_mode = 'rgb_array'
     dynamics_change = dict(noise=dict(thrust_noise_ratio=0.05), damp=dict(vel=0, omega_quadratic=0))
 
     rew_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_rewards']
@@ -71,7 +73,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Rendering
         render_mode=render_mode,
         # SBC specific
-        sbc_radius=cfg.quads_sbc_radius, sbc_aggressive=cfg.quads_sbc_aggressive
+        sbc_radius=cfg.quads_sbc_radius, sbc_aggressive=cfg.quads_sbc_aggressive,
+        # V-value
+        visualize_v_value=cfg.visualize_v_value
     )
 
     if use_replay_buffer:
@@ -139,7 +143,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         checkpoints = Learner.get_checkpoints(Learner.checkpoint_dir(cfg, policy_id), f"{name_prefix}_*")
         checkpoint_dict = Learner.load_checkpoint(checkpoints, device)
         actor_critic.load_state_dict(checkpoint_dict["model"])
-        env = V_ValueMapWrapper(env, actor_critic)
+        env = V_ValueMapWrapper(env, actor_critic, render_mode='rgb_array')
 
     return env
 

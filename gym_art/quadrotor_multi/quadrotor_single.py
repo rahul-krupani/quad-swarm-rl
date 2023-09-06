@@ -131,6 +131,7 @@ class QuadrotorSingle:
         # # SBC specific
         self.sbc_radius = sbc_radius
         self.sbc_aggressive = sbc_aggressive
+        self.acc_sbc = [0, 0, 0]
         # Room
         self.room_length = room_dims[0]
         self.room_width = room_dims[1]
@@ -139,6 +140,7 @@ class QuadrotorSingle:
                                   [self.room_length / 2., self.room_width / 2., self.room_height]])
 
         self.init_random_state = init_random_state
+        self.test_rewards = False
 
         # Preset parameters
         self.obs_repr = obs_repr
@@ -328,16 +330,41 @@ class QuadrotorSingle:
     def _step(self, action, sbc_data):
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
+        self.dynamics.rl_acc = copy.deepcopy(action)
 
         _, acc_sbc = self.controller.step_func(dynamics=self.dynamics, acc_des=action, dt=self.dt, observation=sbc_data)
+        self.dynamics.sbc_acc = copy.deepcopy(acc_sbc)
+
 
         self.time_remain = self.ep_len - self.tick
+        if self.test_rewards:
+            init_x, init_y = self.dynamics.pos[0], self.dynamics.pos[1]
+            for i in range(-10, 11):
+                ti_score = []
+                for j in range(-10, 11):
+                    self.dynamics.pos[0] = init_x + i * 0.2
+                    self.dynamics.pos[1] = init_y + j * 0.2
+
+                    reward, rew_info = compute_reward_weighted(
+                        goal=self.goal, cur_pos=self.dynamics.pos, rl_acc=action, acc_sbc=acc_sbc,
+                        mellinger_acc=self.dynamics.acc,
+                        dt=self.control_dt, rew_coeff=self.rew_coeff, on_floor=self.dynamics.on_floor)
+
+                    print(reward, rew_info)
+
+            self.dynamics.pos[0] = init_x
+            self.dynamics.pos[1] = init_y
+
         reward, rew_info = compute_reward_weighted(
             goal=self.goal, cur_pos=self.dynamics.pos, rl_acc=action, acc_sbc=acc_sbc,
             mellinger_acc=self.dynamics.acc,
             dt=self.control_dt, rew_coeff=self.rew_coeff, on_floor=self.dynamics.on_floor)
 
         self.tick += 1
+        if self.ep_len - self.tick < 100:
+            print(self.tick)
+            print(rew_info)
+            print()
         done = self.tick > self.ep_len
         sv = self.state_vector(self)
         self.traj_count += int(done)
