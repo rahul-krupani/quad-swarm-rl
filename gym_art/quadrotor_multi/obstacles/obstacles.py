@@ -5,10 +5,11 @@ from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision
 
 
 class MultiObstacles:
-    def __init__(self, obstacle_size=1.0, quad_radius=0.046):
+    def __init__(self, obstacle_size=1.0, quad_radius=0.046, room_dims=np.array([10., 10., 10.])):
         self.size = obstacle_size
         self.obstacle_radius = obstacle_size / 2.0
         self.quad_radius = quad_radius
+        self.room_dims = room_dims
         self.pos_arr = []
         self.resolution = 0.1
 
@@ -18,7 +19,7 @@ class MultiObstacles:
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
                                           quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+                                          room_dims=self.room_dims, resolution=self.resolution)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
@@ -28,15 +29,15 @@ class MultiObstacles:
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
                                           quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+                                          room_dims=self.room_dims, resolution=self.resolution)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
 
     def collision_detection(self, pos_quads):
-        quad_collisions = collision_detection(quad_poses=pos_quads[:, :2], obst_poses=self.pos_arr[:, :2],
-                                              obst_radius=self.obstacle_radius, quad_radius=self.quad_radius)
+        quad_collisions = collision_detection(quad_poses=pos_quads, obst_poses=self.pos_arr[:, :2],
+                                              obst_radius=self.obstacle_radius, quad_radius=self.quad_radius, room_dims=self.room_dims)
 
         collided_quads_id = np.where(quad_collisions > -1)[0]
         collided_obstacles_id = quad_collisions[collided_quads_id]

@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 
 @njit
-def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolution=0.1):
+def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, room_dims, resolution=0.1):
     # Shape of quads_sdf_obs: (quad_num, 9)
 
     sdf_map = np.array([-1., -1., -1., 0., 0., 0., 1., 1., 1.])
@@ -13,13 +13,16 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
 
         for g_i, g_x in enumerate([q_pos_x - resolution, q_pos_x, q_pos_x + resolution]):
             for g_j, g_y in enumerate([q_pos_y - resolution, q_pos_y, q_pos_y + resolution]):
-                grid_pos = np.array([g_x, g_y])
+                grid_pos = np.array([g_x, g_y, q_pos[2]])
 
                 min_dist = 100.0
                 for o_pos in obst_poses:
-                    dist = np.linalg.norm(grid_pos - o_pos)
-                    if dist < min_dist:
-                        min_dist = dist
+                    z = 0.0
+                    while z < room_dims[2]:
+                        dist = np.linalg.norm(grid_pos - np.append(o_pos,z))
+                        if dist < min_dist:
+                            min_dist = dist
+                        z += obst_radius
 
                 g_id = g_i * 3 + g_j
                 quads_sdf_obs[i, g_id] = min_dist - obst_radius
@@ -28,17 +31,20 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
 
 
 @njit
-def collision_detection(quad_poses, obst_poses, obst_radius, quad_radius):
+def collision_detection(quad_poses, obst_poses, obst_radius, quad_radius, room_dims):
     quad_num = len(quad_poses)
     collide_threshold = quad_radius + obst_radius
     # Get distance matrix b/w quad and obst
     quad_collisions = -1 * np.ones(quad_num)
     for i, q_pos in enumerate(quad_poses):
         for j, o_pos in enumerate(obst_poses):
-            dist = np.linalg.norm(q_pos - o_pos)
-            if dist <= collide_threshold:
-                quad_collisions[i] = j
-                break
+            z = 0.0
+            while z < room_dims[2]:
+                dist = np.linalg.norm(q_pos - np.append(o_pos,z))
+                if dist <= collide_threshold:
+                    quad_collisions[i] = j
+                    break
+                z += obst_radius
 
     return quad_collisions
 
