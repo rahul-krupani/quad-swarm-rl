@@ -337,23 +337,6 @@ class QuadrotorSingle:
 
 
         self.time_remain = self.ep_len - self.tick
-        if self.test_rewards:
-            init_x, init_y = self.dynamics.pos[0], self.dynamics.pos[1]
-            for i in range(-10, 11):
-                ti_score = []
-                for j in range(-10, 11):
-                    self.dynamics.pos[0] = init_x + i * 0.2
-                    self.dynamics.pos[1] = init_y + j * 0.2
-
-                    reward, rew_info = compute_reward_weighted(
-                        goal=self.goal, cur_pos=self.dynamics.pos, rl_acc=action, acc_sbc=acc_sbc,
-                        mellinger_acc=self.dynamics.acc,
-                        dt=self.control_dt, rew_coeff=self.rew_coeff, on_floor=self.dynamics.on_floor)
-
-                    print(reward, rew_info)
-
-            self.dynamics.pos[0] = init_x
-            self.dynamics.pos[1] = init_y
 
         reward, rew_info = compute_reward_weighted(
             goal=self.goal, cur_pos=self.dynamics.pos, rl_acc=action, acc_sbc=acc_sbc,
@@ -361,10 +344,6 @@ class QuadrotorSingle:
             dt=self.control_dt, rew_coeff=self.rew_coeff, on_floor=self.dynamics.on_floor)
 
         self.tick += 1
-        if self.ep_len - self.tick < 100:
-            print(self.tick)
-            print(rew_info)
-            print()
         done = self.tick > self.ep_len
         sv = self.state_vector(self)
         self.traj_count += int(done)

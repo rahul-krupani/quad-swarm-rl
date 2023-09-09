@@ -461,8 +461,6 @@ class Quadrotor3DSceneMulti:
                         self.vector_array[i].pop(0)
 
                     self.vector_array[i].append(dyn.rl_acc)
-                    if np.sum(dyn.rl_acc):
-                        print()
 
                     # Get average of the vectors
                     avg_of_vecs = np.mean(self.vector_array[i], axis=0)
@@ -490,8 +488,6 @@ class Quadrotor3DSceneMulti:
                         self.acc_array[i].pop(0)
 
                     self.acc_array[i].append(dyn.sbc_acc)
-                    if np.sum(dyn.sbc_acc):
-                        print()
 
                     # Get average of the vectors
                     avg_of_vecs = np.mean(self.acc_array[i], axis=0)

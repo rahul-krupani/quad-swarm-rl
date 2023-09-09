@@ -762,6 +762,9 @@ class QuadrotorEnvMulti(gym.Env):
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
 
+            print("Success rate: ", agent_success_ratio)
+            print("Deadlock rate: ", agent_deadlock_ratio)
+            print("Collision rate: ", agent_col_ratio)
             obs = self.reset()
             # terminate the episode for all "sub-envs"
             dones = [True] * len(dones)
