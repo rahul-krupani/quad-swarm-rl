@@ -160,6 +160,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.collisions_floor_per_episode = 0
         self.collisions_wall_per_episode = 0
         self.collisions_ceiling_per_episode = 0
+        self.compute_time = []
 
         self.prev_crashed_walls = []
         self.prev_crashed_ceiling = []
@@ -199,7 +200,11 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
+        self.flying_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
+        self.done_time = [0.0 for _ in range(len(self.envs))]
+        self.flying_trajectory = [[] for _ in range(len(self.envs))]
+        self.prev_pos = [np.zeros(3) for _ in range(len(self.envs))]
 
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
@@ -411,13 +416,18 @@ class QuadrotorEnvMulti(gym.Env):
         self.prev_crashed_walls = []
         self.prev_crashed_ceiling = []
         self.prev_crashed_room = []
+        self.compute_time = []
 
         # Log
         # # Final Distance (1s / 3s / 5s)
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
+        self.flying_time = [0.0 for _ in range(len(self.envs))]
+        self.done_time = [0.0 for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
+        self.flying_trajectory = [[] for _ in range(len(self.envs))]
+        self.prev_pos = [self.envs[i].dynamics.pos for i in range(len(self.envs))]
 
         # Rendering
         if self.quads_render:
@@ -434,9 +444,11 @@ class QuadrotorEnvMulti(gym.Env):
 
         obs, rewards, dones, infos = [], [], [], []
 
+        self.compute_time.append(0)
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
 
+            t = time.time()
             # Output is acc, not thrusts
             self_state = NominalSBC.State(position=self.envs[i].dynamics.pos, velocity=self.envs[i].dynamics.vel)
             neighbor_descriptions = []
@@ -464,7 +476,7 @@ class QuadrotorEnvMulti(gym.Env):
                 if np.linalg.norm(np.array([x, y]) - np.array([self_state.position[0], self_state.position[1]])) < 3.0:
                     z = 0.0
                     while z < self.room_dims[2]:
-                        if np.linalg.norm(np.array([x, y, z]) - self_state.position) < 3.0:
+                        if np.linalg.norm(np.array([x, y, z]) - self_state.position) < 2.0:
                             neighbor_descriptions.append(
                                 NominalSBC.ObjectDescription(
                                     state=NominalSBC.State(
@@ -477,8 +489,11 @@ class QuadrotorEnvMulti(gym.Env):
                             )
                         z += self.obst_size * 0.5
 
-            observation, reward, done, info = self.envs[i].step(
+            self.compute_time[-1] += time.time() - t
+
+            observation, reward, done, info, t = self.envs[i].step(
                 action=a, sbc_data={"self_state": self_state, "neighbor_descriptions": neighbor_descriptions})
+            self.compute_time[-1] += t
 
             obs.append(observation)
             rewards.append(reward)
@@ -601,6 +616,12 @@ class QuadrotorEnvMulti(gym.Env):
                     and not self.reached_goal[i]:
                 self.reached_goal[i] = True
 
+                # tick is calculated by control_dt, not dt
+                self.flying_time[i] = self.envs[i].tick * self.control_dt
+
+            self.flying_trajectory[i].append(np.linalg.norm(self.prev_pos[i] - self.envs[i].dynamics.pos))
+            self.prev_pos[i] = self.envs[i].dynamics.pos
+
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False
 
@@ -683,11 +704,19 @@ class QuadrotorEnvMulti(gym.Env):
         # 7. DONES
         if any(dones):
             scenario_name = self.scenario.name()[9:]
+            self.distance_to_goal = np.array(self.distance_to_goal)
+            self.flying_time = np.array(self.flying_time)
+            self.reached_goal = np.array(self.reached_goal)
+
+            # With different length, need to specify with dtype=object
+            self.flying_trajectory = np.array(self.flying_trajectory)
+
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
                         'num_collisions_replay': self.collisions_per_episode,
                         'num_collisions_obst_replay': self.obst_quad_collisions_per_episode,
+                        'compute_time': np.mean(np.array(self.compute_time)),
                     }
                 else:
                     self.distance_to_goal = np.array(self.distance_to_goal)
@@ -749,6 +778,12 @@ class QuadrotorEnvMulti(gym.Env):
                     # agent_success_rate
                     infos[i]['episode_extra_stats']['metric/agent_success_rate'] = agent_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = agent_success_ratio
+                    if agent_success_ratio > 0:
+                        # Flying traj
+                        agent_success_flying_trajectories = self.flying_trajectory[agent_success_flag_list]
+                        agent_success_traj_mean = np.mean(np.sum(agent_success_flying_trajectories, axis=-1))
+                        # Flying time
+                        agent_success_flying_time_mean = np.mean(self.flying_time[agent_success_flag_list])
                     # agent_deadlock_rate
                     infos[i]['episode_extra_stats']['metric/agent_deadlock_rate'] = agent_deadlock_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_deadlock_rate'] = agent_deadlock_ratio
@@ -762,9 +797,21 @@ class QuadrotorEnvMulti(gym.Env):
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
 
+                    # agent flying trajectories
+                    if agent_success_ratio > 0:
+                        infos[i]['episode_extra_stats']['flying_trajectory'] = agent_success_traj_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_trajectory'] = agent_success_traj_mean
+
+                        # agent flying time
+                        infos[i]['episode_extra_stats']['flying_time'] = agent_success_flying_time_mean
+                        infos[i]['episode_extra_stats'][f'{scenario_name}/flying_time'] = agent_success_flying_time_mean
+
             print("Success rate: ", agent_success_ratio)
             print("Deadlock rate: ", agent_deadlock_ratio)
             print("Collision rate: ", agent_col_ratio)
+            print("Flying Time: ", agent_success_flying_time_mean)
+            print("FLying Distance: ", agent_success_traj_mean)
+            print("Compute time: ", np.mean(np.array(self.compute_time)))
             obs = self.reset()
             # terminate the episode for all "sub-envs"
             dones = [True] * len(dones)

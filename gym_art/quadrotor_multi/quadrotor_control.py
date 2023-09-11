@@ -328,11 +328,11 @@ class MellingerController(object):
 
     # modifies the dynamics in place.
     # @profile
-    def step(self, dynamics, acc_des, dt, observation=None):
-        # to_goal = goal - dynamics.pos
-        # e_p = -clamp_norm(to_goal, 4.0)
-        # e_v = dynamics.vel
-        # acc_des = -self.kp_p * e_p - self.kd_p * e_v
+    def step(self, dynamics, acc_des, dt, goal, observation=None):
+        to_goal = goal - dynamics.pos
+        e_p = -clamp_norm(to_goal, 4.0)
+        e_v = dynamics.vel
+        acc_des = -self.kp_p * e_p - self.kd_p * e_v
 
         if self.enable_sbc and observation is not None:
             new_acc = self.sbc.plan(observation["self_state"], observation["neighbor_descriptions"], acc_des)

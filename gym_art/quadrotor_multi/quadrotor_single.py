@@ -18,6 +18,7 @@ References:
 [7] Rodrigues' rotation formula: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 """
 import copy
+import time
 
 from gymnasium.utils import seeding
 
@@ -332,7 +333,9 @@ class QuadrotorSingle:
         self.actions[0] = copy.deepcopy(action)
         self.dynamics.rl_acc = copy.deepcopy(action)
 
-        _, acc_sbc = self.controller.step_func(dynamics=self.dynamics, acc_des=action, dt=self.dt, observation=sbc_data)
+        t = time.time()
+        _, acc_sbc = self.controller.step_func(dynamics=self.dynamics, acc_des=action, dt=self.dt, goal=self.goal, observation=sbc_data)
+        t = time.time() - t
         self.dynamics.sbc_acc = copy.deepcopy(acc_sbc)
 
 
@@ -348,7 +351,7 @@ class QuadrotorSingle:
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
-        return sv, reward, done, {'rewards': rew_info}
+        return sv, reward, done, {'rewards': rew_info}, t
 
     def resample_dynamics(self):
         """
