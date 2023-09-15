@@ -99,8 +99,14 @@ class V_ValueMapWrapper(gym.Wrapper):
         idy = []
         temp_maps = []
         rnn_states = None
+        currents = []
+        vels = []
+        for drone in range(num_agents):
+            vels.append(copy.deepcopy(self.env.envs[drone].dynamics.vel))
+            self.env.envs[drone].dynamics.vel = np.zeros((3,))
         for drone in range(num_agents):
             init_x, init_y = self.env.envs[drone].dynamics.pos[0], self.env.envs[drone].dynamics.pos[1]
+            currents.append((self.env.envs[drone].dynamics.pos[0], self.env.envs[drone].dynamics.pos[1]))
             for i in range(-10, 11):
                 ti_score = []
                 for j in range(-10, 11):
@@ -129,10 +135,12 @@ class V_ValueMapWrapper(gym.Wrapper):
             ti_score = []
             tmp_score = []
 
+        for drone in range(num_agents):
+            self.env.envs[drone].dynamics.vel = vels[drone]
         v_value_maps = []
         idx, idy = np.array(idx), np.array(idy)
         for drone in range(num_agents):
-            v_value_map_2d = plot_v_value_2d(idx, idy, np.array(temp_maps[drone]), width=width, height=height)
+            v_value_map_2d = plot_v_value_2d(idx, idy, np.array(temp_maps[drone]), width=width, height=height, vels=currents[drone])
             v_value_maps.append(v_value_map_2d)
 
         return np.array(v_value_maps)

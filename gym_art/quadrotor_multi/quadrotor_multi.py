@@ -61,7 +61,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.room_dims = room_dims
         self.quads_view_mode = quads_view_mode
 
-        self.use_sbc = use_sbc
+        self.use_sbc = False
         use_controller = True if self.use_sbc else False
 
         # Generate All Quadrotors
@@ -98,6 +98,12 @@ class QuadrotorEnvMulti(gym.Env):
         self.omega = np.zeros([self.num_agents, 3])
         self.rel_pos = np.zeros((self.num_agents, self.num_agents, 3))
         self.rel_vel = np.zeros((self.num_agents, self.num_agents, 3))
+        self.avg_success = []
+        self.avg_dead = []
+        self.avg_coll = []
+        self.avg_fly = []
+        self.avg_done = []
+        self.avg_time = []
 
         # Reward
         self.rew_coeff = dict(
@@ -244,6 +250,7 @@ class QuadrotorEnvMulti(gym.Env):
         # body rate
         self.body_rate = [[] for _ in range(self.num_agents)]
         self.body_rate_max = np.zeros(self.num_agents)
+        self.compute_time = []
 
         # Others
         self.apply_collision_force = True
@@ -421,6 +428,9 @@ class QuadrotorEnvMulti(gym.Env):
             obs.append(observation)
             self.pos[i, :] = e.dynamics.pos
 
+        # self.envs[0].dynamics.pos = [0., 0., 0.]
+        # self.envs[0].dynamics.pos = []
+        # self.envs[0].dynamics.pos = []
         # Neighbors
         if self.num_use_neighbor_obs > 0:
             obs = self.add_neighborhood_obs(obs)
@@ -468,6 +478,7 @@ class QuadrotorEnvMulti(gym.Env):
         # bodyrate
         self.body_rate = [[] for _ in range(self.num_agents)]
         self.body_rate_max = np.zeros(self.num_agents)
+        self.compute_time = []
 
         # # Log vel
         # self.episode_vel, self.episode_vel_max: consider episode, start from step 0
@@ -486,6 +497,7 @@ class QuadrotorEnvMulti(gym.Env):
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
 
+        self.compute_time.append(0)
         for i, a in enumerate(actions):
             if self.use_sbc:
                 t = time.time()
@@ -531,12 +543,14 @@ class QuadrotorEnvMulti(gym.Env):
                                     )
                                 z += self.obst_size * 0.5
 
+                self.compute_time[-1] += time.time() - t
             self.envs[i].rew_coeff = self.rew_coeff
 
             if self.use_sbc:
-                observation, reward, done, info = self.envs[i].step(
+                observation, reward, done, info, t = self.envs[i].step(
                     a, {"self_state": self_state,
                         "neighbor_descriptions": neighbor_descriptions})
+                self.compute_time[-1] += t
             else:
                 observation, reward, done, info = self.envs[i].step(a)
             # print("num neighbors: ", len(neighbor_descriptions))
@@ -1017,6 +1031,23 @@ class QuadrotorEnvMulti(gym.Env):
                         infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_mean'] = agent_success_body_rate_mean
                         infos[i]['episode_extra_stats']['agent_success_body_rate_max'] = agent_success_body_rate_max
                         infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_body_rate_max'] = agent_success_body_rate_max
+
+            print("Success rate: ", agent_success_ratio)
+            print("Deadlock rate: ", agent_deadlock_ratio)
+            print("Collision rate: ", agent_col_ratio)
+            print("Flight time: ", agent_success_flying_time_mean)
+            print("Flight Traj: ", agent_success_traj_mean)
+            print("Compute time: ", np.mean(np.array(self.compute_time)))
+            self.avg_success.append(agent_success_ratio)
+            self.avg_dead.append(agent_deadlock_ratio)
+            self.avg_coll.append(agent_col_ratio)
+            self.avg_fly.append(agent_success_traj_mean)
+            self.avg_done.append(agent_success_flying_time_mean)
+            self.avg_time.append(np.mean(np.array(self.compute_time))*1000)
+            if len(self.avg_success) > 10:
+                print("Current averages", len(self.avg_success))
+                print(np.mean(np.array(self.avg_success)), np.mean(np.array(self.avg_dead)), np.mean(np.array(self.avg_coll)), np.mean(np.array(self.avg_fly)),  np.mean(np.array(self.avg_time)), np.mean(np.array(self.avg_done)))
+            print(agent_success_ratio, agent_deadlock_ratio, agent_col_ratio, agent_success_traj_mean, np.mean(np.array(self.compute_time))*1000, agent_success_flying_time_mean)
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"

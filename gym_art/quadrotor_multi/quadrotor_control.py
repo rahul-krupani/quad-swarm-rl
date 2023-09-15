@@ -341,7 +341,7 @@ class MellingerController(object):
 
         self.enable_sbc = True
         self.sbc = NominalSBC(maximum_linf_acceleration=5.0,
-                              aggressiveness=0.1, radius=0.15)
+                              aggressiveness=0.2, radius=0.05)
         self.sbc_last_safe_acc = None
 
         self.step_func = self.step
