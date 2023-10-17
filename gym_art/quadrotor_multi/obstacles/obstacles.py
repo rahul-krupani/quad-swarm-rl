@@ -1,18 +1,19 @@
 import copy
 import numpy as np
 
-from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection
+from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_surround_sdfs_radar_2d
 
 
 class MultiObstacles:
-    def __init__(self, obstacle_size=1.0, quad_radius=0.046):
+    def __init__(self, obstacle_size=1.0, quad_radius=0.046, room_dims=np.array([10., 10., 10.])):
         self.size = obstacle_size
         self.obstacle_radius = obstacle_size / 2.0
         self.quad_radius = quad_radius
         self.pos_arr = []
         self.resolution = 0.1
+        self.room_dims = room_dims
 
-    def reset(self, obs, quads_pos, pos_arr):
+    def reset(self, obs, quads_pos, quads_vels, pos_arr):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
 
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
@@ -24,7 +25,7 @@ class MultiObstacles:
 
         return obs
 
-    def step(self, obs, quads_pos):
+    def step(self, obs, quads_pos, quads_vels):
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
                                           quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,

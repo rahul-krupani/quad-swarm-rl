@@ -404,7 +404,7 @@ class QuadrotorEnvMulti(gym.Env):
         if obst_size:
             self.obst_size = obst_size
 
-        self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm)
+        self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm, room_dims=self.room_dims)
 
         # Scenario reset
         if self.use_obstacles:
@@ -438,7 +438,8 @@ class QuadrotorEnvMulti(gym.Env):
         # Obstacles
         if self.use_obstacles:
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
-            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obst_pos_arr)
+            quads_vels = np.array([e.dynamics.vel for e in self.envs])
+            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, quads_vels=quads_vels, pos_arr=self.obst_pos_arr)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
             self.distance_to_goal_3_5 = 0
@@ -769,7 +770,8 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate obstacle observations
         if self.use_obstacles:
-            obs = self.obstacles.step(obs=obs, quads_pos=self.pos)
+            quads_vels = np.array([e.dynamics.vel for e in self.envs])
+            obs = self.obstacles.step(obs=obs, quads_pos=self.pos, quads_vels=quads_vels)
 
         # 6. Update info for replay buffer
         # Once agent learns how to take off, activate the replay buffer
