@@ -1,34 +1,41 @@
 import copy
 import numpy as np
 
-from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection
+from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_surround_multi_ranger
 
 
 class MultiObstacles:
-    def __init__(self, obstacle_size=1.0, quad_radius=0.046):
+    def __init__(self, obstacle_size=1.0, quad_radius=0.046, room_dims=[10., 10., 10.]):
         self.size = obstacle_size
         self.obstacle_radius = obstacle_size / 2.0
         self.quad_radius = quad_radius
         self.pos_arr = []
         self.resolution = 0.1
+        self.obstacle_height = 10.
+        self.room_dims = np.array(room_dims)
 
-    def reset(self, obs, quads_pos, pos_arr):
+    def reset(self, obs, quads_pos, pos_arr, quads_rot):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
+        self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
 
-        quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
-        quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
-                                          quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+        # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
+        # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius, resolution=self.resolution)
+
+        quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+                                  obst_heights=self.obstacle_heights, room_dims=self.room_dims,
+                                  scan_max_dist=4.0, quad_rotations=quads_rot)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
 
-    def step(self, obs, quads_pos):
-        quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
-        quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
-                                          quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                          resolution=self.resolution)
+    def step(self, obs, quads_pos, quads_rot):
+        # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
+        # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius, resolution=self.resolution)
+
+        quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+                                  obst_heights=self.obstacle_heights, room_dims=self.room_dims,
+                                  scan_max_dist=4.0, quad_rotations=quads_rot)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 

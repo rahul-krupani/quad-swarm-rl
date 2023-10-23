@@ -28,6 +28,160 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
 
 
 @njit
+def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
+    # Calculate the direction vector from the origin to the cylinder center
+    direction_vector = o_pos - q_pos
+    if np.linalg.norm(direction_vector) == 0:
+        return -1, None
+
+    # Calculate the unit vector in the direction of the given view vector
+    view_vector = vector / np.linalg.norm(vector)
+
+    # Calculate the angle between the direction vector and the view vector
+    angle = np.arccos(
+        np.dot(direction_vector, view_vector) / (np.linalg.norm(direction_vector) * np.linalg.norm(view_vector)))
+
+    if np.dot(direction_vector, view_vector) > 0:
+        if angle <= fov_angle / 2:
+            return np.linalg.norm(direction_vector) - o_radius, 2 * o_radius
+
+        # Calculate the angle between the direction vector and the normal to the cylinder surface
+        angle_to_surface = np.arcsin(o_radius / np.linalg.norm(direction_vector))
+
+        edge_vector_1 = np.dot(np.array([[np.cos(angle_to_surface), -np.sin(angle_to_surface)],
+                                         [np.sin(angle_to_surface), np.cos(angle_to_surface)]]), direction_vector)
+        edge_vector_2 = np.dot(np.array([[np.cos(angle_to_surface), np.sin(angle_to_surface)],
+                                         [-np.sin(angle_to_surface), np.cos(angle_to_surface)]]), direction_vector)
+
+        edge_angle_1 = np.arccos(
+            np.dot(edge_vector_1, view_vector) / (np.linalg.norm(edge_vector_1) * np.linalg.norm(view_vector)))
+        edge_angle_2 = np.arccos(
+            np.dot(edge_vector_2, view_vector) / (np.linalg.norm(edge_vector_2) * np.linalg.norm(view_vector)))
+
+        if edge_angle_1 <= fov_angle / 2 or edge_angle_2 <= fov_angle / 2:
+            # Create a triangle with direction vector
+            closest_dist = np.linalg.norm(direction_vector) * np.sin(angle - (fov_angle / 2))
+            full_dist = np.linalg.norm(direction_vector) * np.cos(angle - (fov_angle / 2))
+            if closest_dist <= o_radius:
+                len_in_obst = (o_radius ** 2 - closest_dist ** 2) ** 0.5
+                return full_dist - len_in_obst, 2 * len_in_obst
+        else:
+            return (None, None)
+    return (None, None)
+
+
+@njit
+def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist, quad_rotations):
+    """
+        quad_poses:     quadrotor positions, only with xy pos
+        obst_poses:     obstacle positions, only with xy pos
+        quad_vels:      quadrotor velocities, only with xy vel
+        obst_radius:    obstacle raidus
+    """
+    quads_obs = scan_max_dist * np.ones((len(quad_poses), 5))
+    scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
+    fov_angle = np.pi / 180 * 27
+    arm_length = 0.046
+    quad_height = 0.04
+
+    for q_id in range(len(quad_poses)):
+        q_pos_xy = quad_poses[q_id][:2]
+        q_z = quad_poses[q_id][2]
+        q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0]);
+        q_pitch = np.arctan2(-quad_rotations[q_id][2, 0],
+                           np.sqrt(quad_rotations[q_id][2, 1] ** 2 + quad_rotations[q_id][2, 2] ** 2))
+        q_roll = np.arctan2(quad_rotations[q_id][2, 1], quad_rotations[q_id][2, 2])
+        z_angle_arr = np.array([q_pitch, -q_roll, -q_pitch, q_roll])
+        base_rad = q_yaw
+        for ray_id, rad_shift in enumerate(scan_angle_arr):
+            cur_rad = base_rad + rad_shift
+            cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+            z_angle = z_angle_arr[ray_id]
+            for o_id in range(len(obst_poses)):
+                o_pos_xy = obst_poses[o_id][:2]
+                height = obst_heights[o_id]
+                z_diff = np.abs(q_z - obst_poses[o_id][2])
+                # Returns distance and length of the path inside the circle along the shortest distance vector
+                distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius, fov_angle)
+
+                if distance is not None:
+                    if distance < 0:
+                        quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],
+                                                                   z_diff - height / 2)
+                    elif height / 2 >= z_diff:
+                        quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], distance)
+                    else:
+                        # Use distance and height difference to find the angle
+                        vertical_angle = np.arctan2(z_diff - height / 2, distance)
+
+                        # Is obstacle above
+                        if q_z > obst_poses[o_id][2] + height / 2:
+                            if z_angle_arr[ray_id] <= fov_angle / 2:
+                                curr_angle = np.abs(z_angle_arr[ray_id] - fov_angle / 2)
+                            else:
+                                curr_angle = None
+                        else:
+                            if z_angle_arr[ray_id] > -fov_angle / 2:
+                                curr_angle = np.abs(z_angle_arr[ray_id] + fov_angle / 2)
+                            else:
+                                curr_angle = None
+
+                        if curr_angle is not None:
+                            if np.abs(vertical_angle) <= curr_angle:
+                                quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id],
+                                                              (distance ** 2 + (z_diff - height / 2) ** 2) ** 0.5)
+                            else:
+                                # Checks if FOV angle connects with the base
+                                if (z_diff - height / 2) * (1 / np.tan(curr_angle)) - distance <= circle_len:
+                                    quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], (z_diff - height / 2) * (
+                                            1 / np.sin(curr_angle)))
+
+            for o_quad in range(len(quad_poses)):
+                if o_quad == q_id:
+                    continue
+                opp_quad_xy = quad_poses[o_quad][:2]
+                z_diff = np.abs(q_z - quad_poses[o_quad][2])
+                distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, opp_quad_xy, arm_length,
+                                                                   fov_angle)
+
+                if distance is not None:
+                    if distance < 0:
+                        quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],
+                                                                   z_diff - quad_height / 2)
+                    else:
+                        # Use distance and height difference to find the angle
+                        vertical_angle = np.arctan2(z_diff, distance)
+
+                        # Is obstacle above
+                        if q_z > quad_poses[o_quad][2] + quad_height / 2:
+                            if z_angle_arr[ray_id] <= fov_angle / 2:
+                                curr_angle = np.abs(z_angle_arr[ray_id] - fov_angle / 2)
+                            else:
+                                curr_angle = None
+                        else:
+                            if z_angle_arr[ray_id] > -fov_angle / 2:
+                                curr_angle = np.abs(z_angle_arr[ray_id] + fov_angle / 2)
+                            else:
+                                curr_angle = None
+
+                        if curr_angle is not None:
+                            if np.abs(vertical_angle) <= curr_angle:
+                                quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id],
+                                                              (distance ** 2 + (z_diff - quad_height / 2) ** 2) ** 0.5)
+                            else:
+                                # Checks if FOV angle connects with the base
+                                if (z_diff - quad_height / 2) * (1 / np.tan(curr_angle)) - distance <= circle_len:
+                                    quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id],
+                                                                  (z_diff - quad_height / 2) * (
+                                                                          1 / np.sin(curr_angle)))
+
+            quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)], room_dims[2] - q_z)
+
+    quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+    return quads_obs
+
+
+@njit
 def collision_detection(quad_poses, obst_poses, obst_radius, quad_radius):
     quad_num = len(quad_poses)
     collide_threshold = quad_radius + obst_radius
