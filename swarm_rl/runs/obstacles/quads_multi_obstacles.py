@@ -3,22 +3,23 @@ from swarm_rl.runs.obstacles.quad_obstacle_baseline import QUAD_BASELINE_CLI_8
 
 _params = ParamGrid(
     [
-        ("seed", [0000, 1111, 2222, 3333]),
-        ("quads_num_agents", [8]),
+        ("seed", [0000, 1111]),
+        ("quads_num_agents", [1]),
     ]
 )
 
 OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     ' --num_workers=36 --num_envs_per_worker=4 '
-    '--quads_neighbor_visible_num=2 --quads_neighbor_obs_type=pos_vel --quads_encoder_type=attention '
+    '--quads_neighbor_visible_num=-1 --quads_neighbor_obs_type=none '
+    '--quads_obstacle_obs_type=multi-ranger --quads_encoder_type=attention '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones '
-    '--wandb_group=final'
+    '--wandb_group=multi-ranger_attention'
 )
 
 _experiment = Experiment(
-    "final",
+    "multi-ranger_attention",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
 
-RUN_DESCRIPTION = RunDescription("obstacles_multi", experiments=[_experiment])
+RUN_DESCRIPTION = RunDescription("multi-ranger_attention", experiments=[_experiment])
