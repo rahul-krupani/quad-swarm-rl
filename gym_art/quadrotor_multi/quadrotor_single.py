@@ -314,8 +314,8 @@ class QuadrotorSingle:
             obs_comps = obs_comps + (['rxyz'] + ['rvxyz']) * self.num_use_neighbor_obs
 
         if self.use_obstacles:
-            obs_comps = obs_comps + ["multi-ranger"]
-            #obs_comps = obs_comps + ["octmap"]
+            #obs_comps = obs_comps + ["multi-ranger"]
+            obs_comps = obs_comps + ["octmap"]
 
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []

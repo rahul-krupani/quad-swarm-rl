@@ -41,7 +41,8 @@ QUADS_NEIGHBOR_OBS_TYPE = {
 QUADS_OBSTACLE_OBS_TYPE = {
     'none': 0,
     'octomap': 9,
-    'multi-ranger': 5
+    'multi-ranger': 5,
+    'multi-ranger-sdf': 9
 }
 
 

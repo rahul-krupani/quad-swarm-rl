@@ -27,6 +27,7 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
     return quads_sdf_obs
 
 
+
 @njit
 def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
     # Calculate the direction vector from the origin to the cylinder center
@@ -87,7 +88,7 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
     for q_id in range(len(quad_poses)):
         q_pos_xy = quad_poses[q_id][:2]
         q_z = quad_poses[q_id][2]
-        q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0]);
+        q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
         q_pitch = np.arctan2(-quad_rotations[q_id][2, 0],
                            np.sqrt(quad_rotations[q_id][2, 1] ** 2 + quad_rotations[q_id][2, 2] ** 2))
         q_roll = np.arctan2(quad_rotations[q_id][2, 1], quad_rotations[q_id][2, 2])
@@ -179,6 +180,40 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
 
     quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
     return quads_obs
+
+#@njit
+def get_surround_sdf_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist, quad_rotations, resolution):
+    scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
+    quads_sdf_obs = np.array([])
+    res = np.array([-resolution, 0, resolution])
+
+    distances = get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist, quad_rotations)
+
+    for q_id in range(len(quad_poses)):
+        q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
+        base_rad = q_yaw
+
+        directions = np.array([])
+        sdf_obs = np.array([])
+        for ray_id, rad_shift in enumerate(scan_angle_arr):
+            cur_rad = base_rad + rad_shift
+            cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+            cur_dir = (cur_dir/np.linalg.norm(cur_dir))*distances[q_id, ray_id]
+            directions = np.append(directions, cur_dir)
+
+
+        for g_x in res:
+            for g_y in res:
+                min_dist = 4.0
+                for direc in directions:
+                    min_dist = min(min_dist, np.linalg.norm(direc-np.array([g_x, g_y])))
+
+                sdf_obs = np.append(sdf_obs, min_dist)
+
+        quads_sdf_obs = np.append(quads_sdf_obs, sdf_obs)
+
+    return quads_sdf_obs
+
 
 
 @njit
