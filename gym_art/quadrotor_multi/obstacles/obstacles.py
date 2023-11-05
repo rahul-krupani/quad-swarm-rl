@@ -17,13 +17,15 @@ class MultiObstacles:
         self.obstacle_height = 10.
         self.room_dims = np.array(room_dims)
         self.count = 0
+        self.hist = []
 
     def reset(self, obs, quads_pos, pos_arr, quads_rot):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
         self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
         q_yaws = []
-        for q_id in range(len(quad_poses)):
-            q_yaws.append(np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0]))
+        for q_id in range(len(quads_pos)):
+            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        q_yaws = np.array(q_yaws)
 
 
         # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
@@ -33,8 +35,16 @@ class MultiObstacles:
         quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
                                       obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
                                       quad_rotations=quads_rot)
-
         quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
+
+        # for i in range(9):
+        #     self.hist.append(np.zeros_like(quads_sdf_obs))
+        # self.hist.append(quads_sdf_obs)
+        #
+        # hist_sdf_obs = self.hist[0]
+        # for i in range(1, 10):
+        #     hist_sdf_obs = np.concatenate((hist_sdf_obs, self.hist[1]), axis=1)
+
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
@@ -44,8 +54,8 @@ class MultiObstacles:
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius, resolution=self.resolution)
         #
         q_yaws = []
-        for q_id in range(len(quad_poses)):
-            q_yaws.append(np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0]))
+        for q_id in range(len(quads_pos)):
+            q_yaws.append(np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0]))
 
         # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
         #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims,
@@ -56,6 +66,13 @@ class MultiObstacles:
                                       quad_rotations=quads_rot)
 
         quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
+
+        # self.hist.pop(0)
+        # self.hist.append(quads_sdf_obs)
+        # hist_sdf_obs = self.hist[0]
+        # for i in range(1, 10):
+        #     hist_sdf_obs = np.concatenate((hist_sdf_obs, self.hist[1]), axis=1)
+
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
