@@ -55,7 +55,8 @@ class MultiObstacles:
         #
         q_yaws = []
         for q_id in range(len(quads_pos)):
-            q_yaws.append(np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0]))
+            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        q_yaws = np.array(q_yaws)
 
         # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
         #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims,
