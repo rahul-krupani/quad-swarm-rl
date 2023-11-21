@@ -1,10 +1,10 @@
 import copy
 import numpy as np
 
-from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_surround_multi_ranger, \
-    get_surround_sdf_multi_ranger, build_sdf_multi_ranger
+from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_surround_multi_ranger, get_surround_multi_ranger_depth
 import matplotlib.pyplot as plt
 import matplotlib
+from gym_art.quadrotor_multi.obstacles.mapping import Mapping
 
 
 class MultiObstacles:
@@ -18,34 +18,35 @@ class MultiObstacles:
         self.room_dims = np.array(room_dims)
         self.count = 0
         self.hist = []
+        #self.SDF = Mapping(size=10, resolution=10)
 
     def reset(self, obs, quads_pos, pos_arr, quads_rot):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
         self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
-        q_yaws = []
-        for q_id in range(len(quads_pos)):
-            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
-        q_yaws = np.array(q_yaws)
+        # q_yaws = []
+        # for q_id in range(len(quads_pos)):
+        #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        # q_yaws = np.array(q_yaws)
+        # self.SDF.create_empty_map()
+
+        # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
+        # scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
 
 
-        # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-        #                           obst_heights=self.obstacle_heights, room_dims=self.room_dims,
-        #                           scan_max_dist=4.0, quad_rotations=quads_rot, resolution=0.1)
+        quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
+                                                        obst_radius=self.obstacle_radius,
+                                                        scan_max_dist=4.0,
+                                                        quad_rotations=quads_rot)
 
-        quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-                                      obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
-                                      quad_rotations=quads_rot)
-        quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
+        # quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+        #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
+        #                               quad_rotations=quads_rot)
 
-        # for i in range(9):
-        #     self.hist.append(np.zeros_like(quads_sdf_obs))
-        # self.hist.append(quads_sdf_obs)
-        #
-        # hist_sdf_obs = self.hist[0]
-        # for i in range(1, 10):
-        #     hist_sdf_obs = np.concatenate((hist_sdf_obs, self.hist[1]), axis=1)
+        #self.SDF.update_grid_map(quads_sdf_obs[:, :4].T, np.expand_dims(scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+        #quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+        self.count += 1
 
         return obs
 
@@ -53,28 +54,31 @@ class MultiObstacles:
         # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius, resolution=self.resolution)
         #
-        q_yaws = []
-        for q_id in range(len(quads_pos)):
-            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
-        q_yaws = np.array(q_yaws)
+        # q_yaws = []
+        # for q_id in range(len(quads_pos)):
+        #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        # q_yaws = np.array(q_yaws)
+
+        # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
+        # scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
 
         # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
         #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims,
         #                               scan_max_dist=4.0, quad_rotations=quads_rot, resolution=0.1)
 
-        quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-                                      obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
-                                      quad_rotations=quads_rot)
+        quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+                                      scan_max_dist=4.0, quad_rotations=quads_rot)
 
-        quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
+        # quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+        #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
+        #                               quad_rotations=quads_rot)
 
-        # self.hist.pop(0)
-        # self.hist.append(quads_sdf_obs)
-        # hist_sdf_obs = self.hist[0]
-        # for i in range(1, 10):
-        #     hist_sdf_obs = np.concatenate((hist_sdf_obs, self.hist[1]), axis=1)
+        #self.SDF.update_grid_map(quads_sdf_obs[:, :4].T, np.expand_dims(scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+
+        #quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+        self.count += 1
 
         return obs
 
