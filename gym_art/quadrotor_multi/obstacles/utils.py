@@ -76,7 +76,7 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
             return full_dist - len_in_obst, 2 * len_in_obst
     return (None, None)
 
-
+@njit
 def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_max_dist,
                               quad_rotations):
         """
@@ -124,7 +124,96 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
         quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
         return quads_obs
 
-#@njit
+@njit
+def get_surround_multi_ranger_4x4_depth(quad_poses, obst_poses, obst_radius, scan_max_dist,
+                                    quad_rotations):
+    """
+        quad_poses:     quadrotor positions, only with xy pos
+        obst_poses:     obstacle positions, only with xy pos
+        quad_vels:      quadrotor velocities, only with xy vel
+        obst_radius:    obstacle raidus
+    """
+    quads_obs = scan_max_dist * np.ones((len(quad_poses), 4 * 4 * 4))
+    scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
+    fov_angle = np.pi / 180 * 27
+    modifications = np.array([-3 * (fov_angle / 8), -1 * (fov_angle / 8), (fov_angle / 8), 3 * (fov_angle / 8)])
+
+    for q_id in range(len(quad_poses)):
+        q_pos_xy = quad_poses[q_id][:2]
+        q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
+        q_pitch = np.arctan2(-quad_rotations[q_id][2, 0],
+                             np.sqrt(quad_rotations[q_id][2, 1] ** 2 + quad_rotations[q_id][2, 2] ** 2))
+        q_roll = np.arctan2(quad_rotations[q_id][2, 1], quad_rotations[q_id][2, 2])
+        deflect_angles = np.array([q_pitch, q_roll, -q_pitch, -q_roll])
+        base_rad = q_yaw
+        walls = np.array([[5, q_pos_xy[1]], [-5, q_pos_xy[1]], [q_pos_xy[0], 5], [q_pos_xy[1], -5]])
+        for ray_id, rad_shift in enumerate(scan_angle_arr):
+            # pitch +ve is up, roll +ve is down to the right
+            for sec_id, sec in enumerate(modifications):
+                cur_rad = base_rad + rad_shift + sec
+                cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+                for w_id in range(len(walls)):
+                    wall_dir = walls[w_id] - q_pos_xy
+                    if np.dot(wall_dir, cur_dir) > 0:
+                        angle = np.arccos(
+                            np.dot(wall_dir, cur_dir) / (np.linalg.norm(wall_dir) * np.linalg.norm(cur_dir)))
+                        if angle <= fov_angle / 8:
+                            for v_sec_id, v_sec in enumerate(modifications):
+                                if deflect_angles[ray_id] + v_sec > 0:
+                                    project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
+                                        np.linalg.norm(wall_dir) / np.cos(project_to))
+                                elif deflect_angles[ray_id] + v_sec < 0:
+                                    project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
+                                        np.linalg.norm(wall_dir) / np.cos(project_to))
+                                else:
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], np.linalg.norm(wall_dir))
+                        else:
+                            for v_sec_id, v_sec in enumerate(modifications):
+                                distance = np.linalg.norm(wall_dir) / np.cos(angle - (fov_angle / 8))
+                                if deflect_angles[ray_id] + v_sec > 0:
+                                    project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
+                                        distance / np.cos(project_to))
+                                elif deflect_angles[ray_id] + v_sec < 0:
+                                    project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
+                                        distance / np.cos(project_to))
+                                else:
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance)
+                for o_id in range(len(obst_poses)):
+                    o_pos_xy = obst_poses[o_id][:2]
+
+                    # Returns distance and length of the path inside the circle along the shortest distance vector
+                    distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
+                                                                       fov_angle / 4)
+                    if distance is not None:
+                        for v_sec_id, v_sec in enumerate(modifications):
+                            if deflect_angles[ray_id] + v_sec > 0:
+                                project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
+                                quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance / np.cos(project_to))
+                            elif deflect_angles[ray_id] + v_sec < 0:
+                                project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
+                                quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance / np.cos(project_to))
+                            else:
+                                quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance)
+
+        # quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],room_dims[2] - q_z)
+
+    quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+    return quads_obs
+
+@njit
 def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist,
                               quad_rotations):
     """
@@ -245,7 +334,7 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
     return quads_obs
 
 
-# @njit
+@njit
 def get_surround_sdf_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist, quad_rotations, resolution):
     scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
     quads_sdf_obs = []
