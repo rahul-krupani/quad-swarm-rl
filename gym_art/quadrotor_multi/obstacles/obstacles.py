@@ -5,7 +5,7 @@ from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision
     get_surround_multi_ranger_depth, get_surround_multi_ranger_4x4_depth
 import matplotlib.pyplot as plt
 import matplotlib
-from gym_art.quadrotor_multi.obstacles.mapping import Mapping
+#from gym_art.quadrotor_multi.obstacles.mapping import Mapping
 
 
 class MultiObstacles:
@@ -19,35 +19,41 @@ class MultiObstacles:
         self.room_dims = np.array(room_dims)
         self.count = 0
         self.hist = []
-        #self.SDF = Mapping(size=10, resolution=10)
+        self.scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
+        self.SDF = Mapping(size=10, resolution=10)
+        self.SDF.create_empty_map()
 
     def reset(self, obs, quads_pos, pos_arr, quads_rot):
+        # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
-        self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
+        # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
+        #                                   quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
+        #                                   resolution=self.resolution)
+
+        # self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
         # q_yaws = []
         # for q_id in range(len(quads_pos)):
         #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
         # q_yaws = np.array(q_yaws)
-        # self.SDF.create_empty_map()
-
+        #
         # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
-        # scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
-
-        quads_sdf_obs = get_surround_multi_ranger_4x4_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
-                                                            obst_radius=self.obstacle_radius,
-                                                            scan_max_dist=4.0, quad_rotations=quads_rot)
 
 
-        # quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
-        #                                                 obst_radius=self.obstacle_radius,
-        #                                                 scan_max_dist=4.0,
-        #                                                 quad_rotations=quads_rot)
+        quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
+                                                        obst_radius=self.obstacle_radius,
+                                                        scan_max_dist=4.0,
+                                                        quad_rotations=quads_rot)
 
-        # quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+        # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
+        #                                   quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
+        #                                   resolution=self.resolution)
+
+        # dist = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
         #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
         #                               quad_rotations=quads_rot)
-
-        #self.SDF.update_grid_map(quads_sdf_obs[:, :4].T, np.expand_dims(scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+        #
+        # for agent in range(pos_xy_yaw.shape[0]):
+        #     self.SDF.update_grid_map(np.expand_dims(dist[agent, :4], axis=0).T, np.expand_dims(self.scan_angle_arr, axis=0).T, np.expand_dims(pos_xy_yaw[agent, :], axis=0).T)
         #quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
@@ -64,29 +70,27 @@ class MultiObstacles:
         # for q_id in range(len(quads_pos)):
         #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
         # q_yaws = np.array(q_yaws)
-
+        #
         # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
-        # scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
-
-        # quads_sdf_obs = get_surround_sdf_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-        #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims,
-        #                               scan_max_dist=4.0, quad_rotations=quads_rot, resolution=0.1)
-        quads_sdf_obs = get_surround_multi_ranger_4x4_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+        #
+        quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
                                       scan_max_dist=4.0, quad_rotations=quads_rot)
 
-        # quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-        #                               scan_max_dist=4.0, quad_rotations=quads_rot)
-
-        # quads_sdf_obs = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
+        # dist = get_surround_multi_ranger(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
         #                               obst_heights=self.obstacle_heights, room_dims=self.room_dims, scan_max_dist=4.0,
         #                               quad_rotations=quads_rot)
+        #
+        # for agent in range(pos_xy_yaw.shape[0]):
+        #     self.SDF.update_grid_map(np.expand_dims(dist[agent, :4], axis=0).T,
+        #                              np.expand_dims(self.scan_angle_arr, axis=0).T,
+        #                              np.expand_dims(pos_xy_yaw[agent, :], axis=0).T)
 
-        #self.SDF.update_grid_map(quads_sdf_obs[:, :4].T, np.expand_dims(scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+        # self.SDF.update_grid_map(dist[:, :4].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
 
         #quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_pos, q_yaws), axis=1)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
-        self.count += 1
+        #self.count += 1
 
         return obs
 

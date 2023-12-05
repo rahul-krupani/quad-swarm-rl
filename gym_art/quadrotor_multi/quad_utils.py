@@ -43,7 +43,7 @@ QUADS_OBSTACLE_OBS_TYPE = {
     'octomap': 9,
     'multi-ranger': 5,
     'multi-ranger-yaw': 9,
-    'depth-map': 64
+    'depth-map': 16
 }
 
 

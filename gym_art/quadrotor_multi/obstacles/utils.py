@@ -87,7 +87,8 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
         """
         quads_obs = scan_max_dist * np.ones((len(quad_poses), 4*4))
         scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
-        fov_angle = np.pi / 180 * 27
+        fov_angle = np.pi / 180 * 45
+        sensor_offset = 0.01625
         modifications = np.array([-3 * (fov_angle / 8), -1 * (fov_angle / 8), (fov_angle / 8), 3 * (fov_angle / 8)])
 
         for q_id in range(len(quad_poses)):
@@ -105,11 +106,11 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
                             angle = np.arccos(
                                 np.dot(wall_dir, cur_dir) / (np.linalg.norm(wall_dir) * np.linalg.norm(cur_dir)))
                             if angle <= fov_angle / 8:
-                                quads_obs[q_id][ray_id*4+sec_id] = min(quads_obs[q_id][ray_id*4+sec_id], np.linalg.norm(wall_dir))
+                                quads_obs[q_id][ray_id*4+sec_id] = min(quads_obs[q_id][ray_id*4+sec_id], (np.linalg.norm(wall_dir))-sensor_offset)
                             else:
                                 quads_obs[q_id][ray_id*4+sec_id] = min(quads_obs[q_id][ray_id*4+sec_id],
-                                                              np.linalg.norm(wall_dir) / np.cos(
-                                                                  angle - (fov_angle / 8)))
+                                                                       (np.linalg.norm(wall_dir) / np.cos(
+                                                                  angle - (fov_angle / 8)))-sensor_offset)
                     for o_id in range(len(obst_poses)):
                         o_pos_xy = obst_poses[o_id][:2]
 
@@ -117,7 +118,7 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
                         distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
                                                                            fov_angle / 4)
                         if distance is not None:
-                            quads_obs[q_id][ray_id*4+sec_id] = min(quads_obs[q_id][ray_id*4+sec_id], distance)
+                            quads_obs[q_id][ray_id*4+sec_id] = min(quads_obs[q_id][ray_id*4+sec_id], distance-sensor_offset)
 
             # quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],room_dims[2] - q_z)
 
@@ -136,6 +137,7 @@ def get_surround_multi_ranger_4x4_depth(quad_poses, obst_poses, obst_radius, sca
     quads_obs = scan_max_dist * np.ones((len(quad_poses), 4 * 4 * 4))
     scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
     fov_angle = np.pi / 180 * 27
+    sensor_offset = 0#0.01625
     modifications = np.array([-3 * (fov_angle / 8), -1 * (fov_angle / 8), (fov_angle / 8), 3 * (fov_angle / 8)])
 
     for q_id in range(len(quad_poses)):
@@ -163,15 +165,15 @@ def get_surround_multi_ranger_4x4_depth(quad_poses, obst_poses, obst_radius, sca
                                     project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
                                         quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
-                                        np.linalg.norm(wall_dir) / np.cos(project_to))
+                                        (np.linalg.norm(wall_dir) / np.cos(project_to))-sensor_offset)
                                 elif deflect_angles[ray_id] + v_sec < 0:
                                     project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
                                         quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
-                                        np.linalg.norm(wall_dir) / np.cos(project_to))
+                                        (np.linalg.norm(wall_dir) / np.cos(project_to))-sensor_offset)
                                 else:
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
-                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], np.linalg.norm(wall_dir))
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], np.linalg.norm(wall_dir)-sensor_offset)
                         else:
                             for v_sec_id, v_sec in enumerate(modifications):
                                 distance = np.linalg.norm(wall_dir) / np.cos(angle - (fov_angle / 8))
@@ -179,15 +181,15 @@ def get_surround_multi_ranger_4x4_depth(quad_poses, obst_poses, obst_radius, sca
                                     project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
                                         quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
-                                        distance / np.cos(project_to))
+                                        (distance / np.cos(project_to))-sensor_offset)
                                 elif deflect_angles[ray_id] + v_sec < 0:
                                     project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
                                         quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id],
-                                        distance / np.cos(project_to))
+                                        (distance / np.cos(project_to))-sensor_offset)
                                 else:
                                     quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
-                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance)
+                                        quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance-sensor_offset)
                 for o_id in range(len(obst_poses)):
                     o_pos_xy = obst_poses[o_id][:2]
 
@@ -199,21 +201,21 @@ def get_surround_multi_ranger_4x4_depth(quad_poses, obst_poses, obst_radius, sca
                             if deflect_angles[ray_id] + v_sec > 0:
                                 project_to = deflect_angles[ray_id] + v_sec - (fov_angle / 8)
                                 quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
-                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance / np.cos(project_to))
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], (distance / np.cos(project_to))-sensor_offset)
                             elif deflect_angles[ray_id] + v_sec < 0:
                                 project_to = deflect_angles[ray_id] + v_sec + (fov_angle / 8)
                                 quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
-                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance / np.cos(project_to))
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], (distance / np.cos(project_to))-sensor_offset)
                             else:
                                 quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id] = min(
-                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance)
+                                    quads_obs[q_id][ray_id * 16 + sec_id * 4 + v_sec_id], distance-sensor_offset)
 
         # quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],room_dims[2] - q_z)
 
     quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
     return quads_obs
 
-@njit
+#@njit
 def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights, room_dims, scan_max_dist,
                               quad_rotations):
     """
@@ -242,14 +244,14 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
             cur_rad = base_rad + rad_shift
             cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
             z_angle = z_angle_arr[ray_id]
-            for w_id in range(len(walls)):
+            '''for w_id in range(len(walls)):
                 wall_dir = walls[w_id]-q_pos_xy
                 if np.dot(wall_dir, cur_dir) > 0:
                     angle = np.arccos(np.dot(wall_dir, cur_dir)/(np.linalg.norm(wall_dir)*np.linalg.norm(cur_dir)))
                     if angle <= fov_angle/2:
                         quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], np.linalg.norm(wall_dir))
                     else:
-                        quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], np.linalg.norm(wall_dir)/np.cos(angle-(fov_angle/2)))
+                        quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], np.linalg.norm(wall_dir)/np.cos(angle-(fov_angle/2)))'''
             for o_id in range(len(obst_poses)):
                 o_pos_xy = obst_poses[o_id][:2]
                 height = obst_heights[o_id]
@@ -285,11 +287,12 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
                                                               (distance ** 2 + (z_diff - height / 2) ** 2) ** 0.5)
                             else:
                                 # Checks if FOV angle connects with the base
+                                # TODO: error with tan?
                                 if (z_diff - height / 2) * (1 / np.tan(curr_angle)) - distance <= circle_len:
                                     quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id], (z_diff - height / 2) * (
                                             1 / np.sin(curr_angle)))
 
-            for o_quad in range(len(quad_poses)):
+            '''for o_quad in range(len(quad_poses)):
                 if o_quad == q_id:
                     continue
                 opp_quad_xy = quad_poses[o_quad][:2]
@@ -326,7 +329,7 @@ def get_surround_multi_ranger(quad_poses, obst_poses, obst_radius, obst_heights,
                                 if (z_diff - quad_height / 2) * (1 / np.tan(curr_angle)) - distance <= circle_len:
                                     quads_obs[q_id][ray_id] = min(quads_obs[q_id][ray_id],
                                                                   (z_diff - quad_height / 2) * (
-                                                                          1 / np.sin(curr_angle)))
+                                                                          1 / np.sin(curr_angle)))'''
 
             quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)], room_dims[2] - q_z)
 
