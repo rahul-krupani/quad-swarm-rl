@@ -591,10 +591,10 @@ class QuadrotorEnvMulti(gym.Env):
                     action=a,
                     sbc_data={'self_state': self_state, 'neighbor_descriptions': neighbor_descriptions,
                               'obstacle_descriptions': obstacle_descriptions,
-                              'sbc_neighbor_aggressive': sbc_neighbor_aggressive[i],
-                              'sbc_obst_aggressive': sbc_obst_aggressive[i],
+                              'sbc_neighbor_aggressive': sbc_neighbor_aggressive,
+                              'sbc_obst_aggressive': sbc_obst_aggressive,
                               'sbc_room_aggressive': sbc_room_aggressive,
-                              'agg_unclip': actions_aggressive_unclip[i],
+                              #'agg_unclip': actions_aggressive_unclip[i],
                                'no_sol': self.none_sol_count[i],
                               }
                 )

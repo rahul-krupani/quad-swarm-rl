@@ -130,7 +130,7 @@ def compute_reward_weighted(
         # Extra #3: SBC based
         cost_rl_sbc,
         cost_sbc_boundary,
-        cost_aggressiveness,
+        #cost_aggressiveness,
         # Extra #4: action change
         cost_act_change,
         # Extra #5: cost_extra_rl_real
@@ -150,7 +150,7 @@ def compute_reward_weighted(
         # Extra #3: SBC based
         "rew_rl_sbc": -cost_rl_sbc,
         'rew_sbc_boundary': -cost_sbc_boundary,
-        'rew_cbf_agg': -cost_aggressiveness,
+        #'rew_cbf_agg': -cost_aggressiveness,
         # Extra #4: action change
         'rew_act_change': -cost_act_change,
         # Extra #5: cost_extra_rl_real
@@ -168,7 +168,7 @@ def compute_reward_weighted(
         # Extra #3: SBC based
         "rewraw_rl_sbc": -cost_rl_sbc_raw,
         'rewraw_sbc_boundary': -cost_sbc_boundary_raw,
-        'rewraw_cbf_agg': -cost_aggressiveness_raw,
+        #'rewraw_cbf_agg': -cost_aggressiveness_raw,
         # Extra #4: action change
         'rewraw_act_change': -cost_act_change_raw,
         # Extra #5: cost_extra_rl_real
@@ -504,7 +504,7 @@ class QuadrotorSingle:
                 acc_sbc=acc_sbc, sbc_distance_to_boundary=sbc_distance_to_boundary,
                 mellinger_acc=self.dynamics.acc, dt=self.control_dt,
                 rew_coeff=self.rew_coeff, on_floor=self.dynamics.on_floor,
-                action_prev=self.actions[1], aggressive_unclip=sbc_data['agg_unclip'], enable_sbc=self.enable_sbc,
+                action_prev=self.actions[1], aggressive_unclip=0, enable_sbc=self.enable_sbc,
                 dynamics=self.dynamics, cost_enable_extra=self.cost_enable_extra,
             )
         else:
