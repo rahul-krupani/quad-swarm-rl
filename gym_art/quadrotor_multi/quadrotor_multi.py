@@ -37,7 +37,7 @@ class QuadrotorEnvMulti(gym.Env):
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
                  # Rendering
-                 render_mode='human'
+                 render_mode='rgb_array'
                  ):
         super().__init__()
 
@@ -338,6 +338,8 @@ class QuadrotorEnvMulti(gym.Env):
 
     def reset(self, obst_density=None, obst_size=None):
         obs, rewards, dones, infos = [], [], [], []
+        self.pos_x = []
+        self.pos_y = []
 
         if obst_density:
             self.obst_density = obst_density
@@ -408,6 +410,9 @@ class QuadrotorEnvMulti(gym.Env):
             self.reset_scene = True
             self.quads_formation_size = self.scenario.formation_size
             self.all_collisions = {val: [0.0 for _ in range(len(self.envs))] for val in ['drone', 'ground', 'obstacle']}
+
+        self.pos_x.append(self.envs[0].dynamics.pos[0])
+        self.pos_y.append(self.envs[0].dynamics.pos[1])
 
         return obs
 
@@ -624,6 +629,8 @@ class QuadrotorEnvMulti(gym.Env):
             self.all_collisions = {'drone': drone_col_matrix, 'ground': ground_collisions,
                                    'obstacle': obst_coll}
 
+        self.pos_x.append(self.envs[0].dynamics.pos[0])
+        self.pos_y.append(self.envs[0].dynamics.pos[1])
         # 7. DONES
         if any(dones):
             scenario_name = self.scenario.name()[9:]
@@ -719,6 +726,10 @@ class QuadrotorEnvMulti(gym.Env):
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
 
+            np.savetxt("traj_x.csv", np.array(self.pos_x), delimiter=",")
+            np.savetxt("traj_y.csv", np.array(self.pos_y), delimiter=",")
+            #
+            # np.savetxt("SDF.csv", self.obstacles.SDF.grid, delimiter=',')
             obs = self.reset()
             # terminate the episode for all "sub-envs"
             dones = [True] * len(dones)

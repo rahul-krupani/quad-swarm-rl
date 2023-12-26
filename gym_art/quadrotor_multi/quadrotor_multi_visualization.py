@@ -188,6 +188,7 @@ class Quadrotor3DSceneMulti:
         self.formation_size = formation_size
         self.vis_vel_arrows = vis_vel_arrows
         self.vis_acc_arrows = vis_acc_arrows
+        self.vis_rot_arrows = False
         self.viz_traces = 50
         self.viz_trace_nth_step = viz_trace_nth_step
         self.vector_array = [[] for _ in range(num_agents)]
@@ -219,6 +220,8 @@ class Quadrotor3DSceneMulti:
         self.quad_transforms, self.shadow_transforms, self.goal_transforms, self.collision_transforms = [], [], [], []
         self.obstacle_transforms, self.vec_cyl_transforms, self.vec_cone_transforms = [], [], []
         self.path_transforms = [[] for _ in range(self.num_agents)]
+        self.vec_cyl_transforms_x_axis, self.vec_cyl_transforms_y_axis, self.vec_cyl_transforms_z_axis = [], [], []
+        self.vec_cone_transforms_x_axis, self.vec_cone_transforms_y_axis, self.vec_cone_transforms_z_axis = [], [], []
 
         shadow_circle = r3d.circle(0.75 * self.diameter, 32)
         collision_sphere = r3d.sphere(0.75 * self.diameter, 32)
@@ -254,6 +257,25 @@ class Quadrotor3DSceneMulti:
                 self.vec_cone_transforms.append(
                     r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
                 )
+            if self.vis_rot_arrows:
+                self.vec_cyl_transforms_x_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
+                )
+                self.vec_cone_transforms_x_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
+                )
+                self.vec_cyl_transforms_y_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
+                )
+                self.vec_cone_transforms_y_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
+                )
+                self.vec_cyl_transforms_z_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cylinder)
+                )
+                self.vec_cone_transforms_z_axis.append(
+                    r3d.transform_and_color(np.eye(4), (1, 1, 1), arrow_cone)
+                )
 
             if self.viz_traces:
                 color = QUAD_COLOR[i % len(QUAD_COLOR)] + (1.0,)
@@ -268,11 +290,17 @@ class Quadrotor3DSceneMulti:
 
         self.create_goals()
 
+        if self.vis_rot_arrows:
+            self.create_axes()
+
         bodies = [r3d.BackToFront([floor, st]) for st in self.shadow_transforms]
         bodies.extend(self.goal_transforms)
         bodies.extend(self.quad_transforms)
+        if self.vis_rot_arrows:
+            bodies.extend(self.axis_arrows)
         bodies.extend(self.vec_cyl_transforms)
         bodies.extend(self.vec_cone_transforms)
+
         for path in self.path_transforms:
             bodies.extend(path)
         # visualize walls of the room if True
@@ -321,9 +349,27 @@ class Quadrotor3DSceneMulti:
             # color = QUAD_COLOR
             self.obstacle_transforms[i].set_transform_and_color(r3d.translate(pos_update), OBST_COLOR_4)
 
-    #def create_arrows(self, envs):
-    #
-    #    self.
+    def create_axes(self):
+        import gym_art.quadrotor_multi.rendering3d as r3d
+
+        self.axis_arrows = []
+        self.axis_arrows_rot = []
+        for i in range(len(self.models)):
+            goal_arr_len, goal_arr_r, goal_arr_sect = 2.0 * self.goal_diameter, 0.15 * self.goal_diameter, 10
+
+            self.axis_arrows_rot.append(np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]))
+            self.axis_arrows_rot.append(np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]]))
+            self.axis_arrows_rot.append(np.eye(3))
+
+            self.axis_arrows.append(r3d.transform_and_color(
+                np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]]),
+                (1., 0., 0.), r3d.arrow(goal_arr_r, goal_arr_len, goal_arr_sect)))
+            self.axis_arrows.append(r3d.transform_and_color(
+                np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]),
+                (0., 1., 0.), r3d.arrow(goal_arr_r, goal_arr_len, goal_arr_sect)))
+            self.axis_arrows.append(r3d.transform_and_color(
+                np.eye(4),
+                (0., 0., 1.), r3d.arrow(goal_arr_r, goal_arr_len, goal_arr_sect)))
 
     def create_goals(self):
         import gym_art.quadrotor_multi.rendering3d as r3d
@@ -390,6 +436,12 @@ class Quadrotor3DSceneMulti:
             # self.scene.batches.extend([batch])
             self.store_path_count += 1
             self.update_goals(goals=goals)
+            if self.vis_rot_arrows:
+                for i, g in enumerate(goals):
+                    self.axis_arrows[i * 3 + 0].set_transform(r3d.trans_and_rot(all_dynamics[i].pos, self.axis_arrows_rot[i * 3 + 0]))
+                    self.axis_arrows[i * 3 + 1].set_transform(r3d.trans_and_rot(all_dynamics[i].pos, self.axis_arrows_rot[i * 3 + 1]))
+                    self.axis_arrows[i * 3 + 2].set_transform(r3d.trans_and_rot(all_dynamics[i].pos, self.axis_arrows_rot[i * 3 + 2]))
+
             if self.obstacles:
                 self.update_obstacles(obstacles)
 

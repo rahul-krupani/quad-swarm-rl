@@ -20,12 +20,12 @@ class MultiObstacles:
         self.count = 0
         self.hist = []
         self.scan_angle_arr = np.array([0., np.pi / 2, np.pi, -np.pi / 2])
-        self.SDF = Mapping(size=10, resolution=10)
-        self.SDF.create_empty_map()
+        # self.SDF = Mapping(size=10, resolution=10)
+        # self.SDF.create_empty_map()
 
     def reset(self, obs, quads_pos, pos_arr, quads_rot):
-        # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
+        # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
         #                                   quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
         #                                   resolution=self.resolution)
