@@ -5,7 +5,7 @@ _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
         ("quads_max_neighbor_aggressive", [50.0]),
-        ("quads_max_obst_aggressive", [25.0]),
+        ("quads_max_obst_aggressive", [50.0]),
         ("quads_max_acc", [4.0]),
     ]
 )
@@ -29,13 +29,13 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_anneal_safe_start_steps=0 --quads_anneal_safe_total_steps=0 --cbf_agg_anneal_steps=0 '
     # Wandb
     '--with_wandb=True --wandb_project=Quad-Hybrid --wandb_user=multi-drones '
-    '--wandb_group=grid_search_acc_agg_v2'
+    '--wandb_group=hybrid-no-agg-50-50'
 )
 
 _experiment = Experiment(
-    "grid_search_acc_agg_v1",
+    "hybrid-no-agg-50-50",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
 
-RUN_DESCRIPTION = RunDescription("hybrid", experiments=[_experiment])
+RUN_DESCRIPTION = RunDescription("hybrid-no-agg-50-50", experiments=[_experiment])

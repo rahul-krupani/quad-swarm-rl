@@ -82,22 +82,22 @@ def compute_reward_weighted(
     cost_act_change_raw = np.linalg.norm(action_prev - rl_acc)
     cost_act_change = rew_coeff["act_change"] * cost_act_change_raw
 
-    # Aggressiveness unclip
-    if enable_sbc:
-        aggressiveness_clip = np.clip(aggressive_unclip, a_min=0.0, a_max=1.0)
-        agg_clipped_list = np.abs(aggressive_unclip - aggressiveness_clip)
-        agg_clipped_cost = agg_clipped_list[0] + agg_clipped_list[1]
-        agg_too_large_cost = aggressiveness_clip[0] + aggressiveness_clip[1]
-
-        cost_aggressiveness_raw = agg_clipped_cost + agg_too_large_cost
-        cost_aggressiveness = rew_coeff["cbg_agg"] * cost_aggressiveness_raw
-    else:
-        aggressiveness_clip = np.clip(aggressive_unclip, a_min=0.0, a_max=1.0)
-        agg_clipped_list = np.abs(aggressive_unclip - aggressiveness_clip)
-        agg_clipped_cost = agg_clipped_list[0] + agg_clipped_list[1]
-
-        cost_aggressiveness_raw = agg_clipped_cost
-        cost_aggressiveness = rew_coeff["cbg_agg"] * cost_aggressiveness_raw
+    # # Aggressiveness unclip
+    # if enable_sbc:
+    #     aggressiveness_clip = np.clip(aggressive_unclip, a_min=0.0, a_max=1.0)
+    #     agg_clipped_list = np.abs(aggressive_unclip - aggressiveness_clip)
+    #     agg_clipped_cost = agg_clipped_list[0] + agg_clipped_list[1]
+    #     agg_too_large_cost = aggressiveness_clip[0] + aggressiveness_clip[1]
+    #
+    #     cost_aggressiveness_raw = agg_clipped_cost + agg_too_large_cost
+    #     cost_aggressiveness = rew_coeff["cbg_agg"] * cost_aggressiveness_raw
+    # else:
+    #     aggressiveness_clip = np.clip(aggressive_unclip, a_min=0.0, a_max=1.0)
+    #     agg_clipped_list = np.abs(aggressive_unclip - aggressiveness_clip)
+    #     agg_clipped_cost = agg_clipped_list[0] + agg_clipped_list[1]
+    #
+    #     cost_aggressiveness_raw = agg_clipped_cost
+    #     cost_aggressiveness = rew_coeff["cbg_agg"] * cost_aggressiveness_raw
 
     # SBC boundary cost
     if enable_sbc:
@@ -391,8 +391,8 @@ class QuadrotorSingle:
 
         # ACTIONS
         # if self.enable_sbc:
-        action_lows_space = np.array([-1, -1, -1, 0, 0], dtype=np.float32)
-        action_high_space = np.array([1, 1, 1, 1, 1], dtype=np.float32)
+        action_lows_space = np.array([-1, -1, -1], dtype=np.float32)
+        action_high_space = np.array([1, 1, 1], dtype=np.float32)
         # else:
         #     action_lows_space = np.array([-1, -1, -1], dtype=np.float32)
         #     action_high_space = np.array([1, 1, 1], dtype=np.float32)
