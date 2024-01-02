@@ -65,10 +65,8 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
             else:
                 return (None, None)
         # Case where full FOV is between center and edge
-        if (np.dot(edge_vector_1, view_vector) > 0 and np.isclose(angle_to_surface, angle + edge_angle_1,
-                                                                    atol=1e-5)) or (
-                np.dot(edge_vector_1, view_vector) > 0 and np.isclose(angle_to_surface, angle + edge_angle_2,
-                                                                        atol=1e-5)):
+        if (np.dot(edge_vector_1, view_vector) > 0 and np.abs(angle_to_surface-(angle + edge_angle_1))<1e-5) or (
+                np.dot(edge_vector_1, view_vector) > 0 and np.abs(angle_to_surface-(angle + edge_angle_2))<1e-5):
             # Create a triangle with direction vector
             closest_dist = np.linalg.norm(direction_vector) * np.sin(angle - (fov_angle / 2))
             full_dist = np.linalg.norm(direction_vector) * np.cos(angle - (fov_angle / 2))

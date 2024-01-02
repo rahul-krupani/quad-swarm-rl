@@ -193,7 +193,7 @@ class Mapping:
         self.grid = np.clip(self.grid, a_max=LOG_ODD_MAX, a_min=LOG_ODD_MIN)
 
     def isValid(self, X):
-        if X[0] < 0 or X[0] > 100 or X[1] < 0 or X[1] > 100:
+        if X[0] < 0 or X[0] >= 100 or X[1] < 0 or X[1] >= 100:
             return False
         return True
 
@@ -249,5 +249,6 @@ class Mapping:
         for i, pos in enumerate(quads_poses):
             disc_pos = self.discretize(pos)
             for j, d in enumerate(dir):
-                quads_sdf[i, j] = self.sdf[disc_pos[0]+d[0], disc_pos[1]+d[1]]
+                if self.isValid((disc_pos[0]+d[0], disc_pos[1]+d[1])):
+                    quads_sdf[i, j] = self.sdf[disc_pos[0]+d[0], disc_pos[1]+d[1]]
         return quads_sdf
