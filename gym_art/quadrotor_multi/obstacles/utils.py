@@ -1,6 +1,58 @@
 import numpy as np
 from numba import njit
 
+@njit
+def isValid(X):
+    if X[0] < 0 or X[0] >= 100 or X[1] < 0 or X[1] >= 100:
+        return False
+    return True
+
+@njit
+def esdf(obstacle_x, obstacle_y):
+    """
+    :param M: Row number
+    :param N: Column number
+    :param obstacle_list: Obstacle list
+    :return: An array. The value of each cell means the closest distance to the obstacle
+    """
+    # The ESDF, the distance from the nearest obstacle, set to infinity to start
+    distance = [[2 for i in range(100)] for j in range(100)]
+
+    # Index of the closest Obstacle
+    closestObstacle = [[100 for i in range(100)] for j in range(100)]
+
+    # Propogate the distances using BFS from the obstacles (Each adjacent pixel is a connected node)
+    Queue = []
+
+    # Add the Obstacles to the Queue, initialize distance values
+    for i in range(len(obstacle_x)):
+        Queue.append([obstacle_x[i], obstacle_y[i]])
+        closestObstacle[obstacle_x[i]][obstacle_y[i]] = [obstacle_x[i], obstacle_y[i]]
+        distance[obstacle_x[i]][obstacle_y[i]] = 0
+
+    # Adjacent pixel directions
+    directions = [[-1, -1], [-1, 0], [0, -1], [-1, 1], [1, -1], [1, 0], [0, 1], [1, 1]]
+    new = []
+
+    while len(Queue) != 0:
+        curr = Queue.pop(0)
+
+        for i in directions:
+            new = [curr[0] + i[0], curr[1] + i[1]]
+
+            if isValid(new):
+                # Find closest Obstacle
+                O = closestObstacle[curr[0]][curr[1]]
+                d = np.sqrt((new[0] - O[0]) ** 2 + (new[1] - O[1]) ** 2)
+
+                # If new distance is closer, update distance and add to Queue
+                if d < distance[new[0]][new[1]]:
+                    distance[new[0]][new[1]] = d
+                    closestObstacle[new[0]][new[1]] = O
+                    # Propogate further
+                    Queue.append(new)
+
+    return np.array(distance)
 
 @njit
 def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolution=0.1):

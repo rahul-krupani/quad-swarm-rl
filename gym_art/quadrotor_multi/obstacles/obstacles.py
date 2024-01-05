@@ -63,7 +63,7 @@ class MultiObstacles:
 
         self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
         obs_x, obs_y = np.where(self.mapper.grid > 5.0)
-        self.mapper.esdf(obs_x, obs_y)
+        self.mapper.build_esdf(obs_x, obs_y)
 
         quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
         quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
@@ -95,7 +95,7 @@ class MultiObstacles:
 
         self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
         obs_x, obs_y = np.where(self.mapper.grid > 5.0)
-        self.mapper.esdf(obs_x, obs_y)
+        self.mapper.build_esdf(obs_x, obs_y)
 
         quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
         quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
