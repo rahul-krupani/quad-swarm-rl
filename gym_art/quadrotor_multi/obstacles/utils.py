@@ -2,8 +2,8 @@ import numpy as np
 from numba import njit
 
 @njit
-def isValid(X):
-    if X[0] < 0 or X[0] >= 100 or X[1] < 0 or X[1] >= 100:
+def isValid(X0, X1):
+    if X0 < 0 or X0 >= 100 or X1 < 0 or X1 >= 100:
         return False
     return True
 
@@ -19,7 +19,7 @@ def esdf(obstacle_x, obstacle_y):
     distance = [[2 for i in range(100)] for j in range(100)]
 
     # Index of the closest Obstacle
-    closestObstacle = [[100 for i in range(100)] for j in range(100)]
+    closestObstacle = [[[0,0] for i in range(100)] for j in range(100)]
 
     # Propogate the distances using BFS from the obstacles (Each adjacent pixel is a connected node)
     Queue = []
@@ -27,8 +27,10 @@ def esdf(obstacle_x, obstacle_y):
     # Add the Obstacles to the Queue, initialize distance values
     for i in range(len(obstacle_x)):
         Queue.append([obstacle_x[i], obstacle_y[i]])
-        closestObstacle[obstacle_x[i]][obstacle_y[i]] = [obstacle_x[i], obstacle_y[i]]
-        distance[obstacle_x[i]][obstacle_y[i]] = 0
+        closestObstacle[int(obstacle_x[i])][int(obstacle_y[i])][0] = int(obstacle_x[i])
+        closestObstacle[int(obstacle_x[i])][int(obstacle_y[i])][1] = int(obstacle_y[i])
+        distance[int(obstacle_x[i])][int(obstacle_y[i])] = 0
+
 
     # Adjacent pixel directions
     directions = [[-1, -1], [-1, 0], [0, -1], [-1, 1], [1, -1], [1, 0], [0, 1], [1, 1]]
@@ -38,17 +40,20 @@ def esdf(obstacle_x, obstacle_y):
         curr = Queue.pop(0)
 
         for i in directions:
-            new = [curr[0] + i[0], curr[1] + i[1]]
+            new = [int(curr[0] + i[0]), int(curr[1] + i[1])]
 
-            if isValid(new):
+            if isValid(new[0], new[1]):
                 # Find closest Obstacle
-                O = closestObstacle[curr[0]][curr[1]]
+                O = [0, 0]
+                O[0] = closestObstacle[int(curr[0])][int(curr[1])][0]
+                O[1] = closestObstacle[int(curr[0])][int(curr[1])][1]
                 d = np.sqrt((new[0] - O[0]) ** 2 + (new[1] - O[1]) ** 2)
 
                 # If new distance is closer, update distance and add to Queue
                 if d < distance[new[0]][new[1]]:
                     distance[new[0]][new[1]] = d
-                    closestObstacle[new[0]][new[1]] = O
+                    closestObstacle[new[0]][new[1]][0] = O[0]
+                    closestObstacle[new[0]][new[1]][1] = O[1]
                     # Propogate further
                     Queue.append(new)
 
@@ -136,7 +141,7 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
             obst_radius:    obstacle raidus
         """
         quads_obs = scan_max_dist * np.ones((len(quad_poses), 4*4))
-        scan_angle_arr = np.array([0., np.pi])
+        scan_angle_arr = np.array([0.])
         fov_angle = np.pi / 180 * 45
         sensor_offset = 0.01625
         modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])

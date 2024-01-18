@@ -38,19 +38,19 @@ class MultiObstacles:
         #                                   resolution=self.resolution)
 
         # self.obstacle_heights = np.array([self.obstacle_height for i in range(len(pos_arr))])
-        q_yaws = []
-        for q_id in range(len(quads_pos)):
-            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
-        q_yaws = np.array(q_yaws)
-
-        pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
+        # q_yaws = []
+        # for q_id in range(len(quads_pos)):
+        #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        # q_yaws = np.array(q_yaws)
+        #
+        # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
 
 
         quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
                                                         obst_radius=self.obstacle_radius,
                                                         scan_max_dist=2.0,
                                                         quad_rotations=quads_rot)
-        dist = quads_sdf_obs
+        # dist = quads_sdf_obs
 
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
         #                                   quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
@@ -61,12 +61,12 @@ class MultiObstacles:
         #                               quad_rotations=quads_rot)
         #
 
-        self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
-        obs_x, obs_y = np.where(self.mapper.grid > 5.0)
-        self.mapper.build_esdf(obs_x, obs_y)
-
-        quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
-        quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
+        # self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+        # obs_x, obs_y = np.where(self.mapper.grid > 5.0)
+        # self.mapper.build_esdf(obs_x, obs_y)
+        #
+        # quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
+        # quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
 
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
@@ -77,28 +77,28 @@ class MultiObstacles:
         # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius, resolution=self.resolution)
 
-        q_yaws = []
-        for q_id in range(len(quads_pos)):
-            q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
-        q_yaws = np.array(q_yaws)
-
-        pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
+        # q_yaws = []
+        # for q_id in range(len(quads_pos)):
+        #     q_yaws.append(np.array([np.arctan2(quads_rot[q_id][1, 0], quads_rot[q_id][0, 0])]))
+        # q_yaws = np.array(q_yaws)
+        #
+        # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
 
         quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
                                       scan_max_dist=2.0, quad_rotations=quads_rot)
-        dist = quads_sdf_obs
+        # dist = quads_sdf_obs
 
         # for agent in range(pos_xy_yaw.shape[0]):
         #     self.SDF.update_grid_map(np.expand_dims(dist[agent, :8], axis=0).T,
         #                              np.expand_dims(self.scan_angle_arr, axis=0).T,
         #                              np.expand_dims(pos_xy_yaw[agent, :], axis=0).T)
 
-        self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
-        obs_x, obs_y = np.where(self.mapper.grid > 5.0)
-        self.mapper.build_esdf(obs_x, obs_y)
-
-        quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
-        quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
+        # self.mapper.update_grid_map(dist[:, :16].T, np.expand_dims(self.scan_angle_arr, axis=0).T, pos_xy_yaw.T)
+        # obs_x, obs_y = np.where(self.mapper.grid > 5.0)
+        # self.mapper.build_esdf(obs_x, obs_y)
+        #
+        # quads_sdf_obs_generated = self.mapper.get_surround(quads_pos[:, :2])
+        # quads_sdf_obs = np.concatenate((quads_sdf_obs, quads_sdf_obs_generated), axis=1)
 
         obs = np.concatenate((obs, quads_sdf_obs), axis=1)
         #self.count += 1

@@ -9,7 +9,7 @@ import numpy as np
 from skimage.draw import line as bresenham
 from math import floor
 
-from gym_art.quadrotor_multi.obstacles.utils import esdf
+from gym_art.quadrotor_multi.obstacles.utils import esdf, isValid
 
 
 class Mapping:
@@ -206,6 +206,6 @@ class Mapping:
         for i, pos in enumerate(quads_poses):
             disc_pos = self.discretize(pos)
             for j, d in enumerate(dir):
-                if self.isValid((disc_pos[0]+d[0], disc_pos[1]+d[1])):
+                if isValid(disc_pos[0]+d[0], disc_pos[1]+d[1]):
                     quads_sdf[i, j] = self.sdf[disc_pos[0]+d[0], disc_pos[1]+d[1]]
         return quads_sdf
