@@ -9,14 +9,14 @@ from pathlib import Path
 from swarm_rl.sim2real.sim2real import load_sf_model
 
 
-def test_compare_torch_to_c_model_outputs_single_drone():
+def compare_torch_to_c_model_outputs_single_drone():
     # set this to whatever your project path is
     project_root = Path.home().joinpath('quad-swarm-rl')
     os.chdir(str(project_root))
     # SF torch model used to generate the c model. Set this to be the dir where you store the torch model
     # you used to generate the c model
     torch_model_dir = 'swarm_rl/sim2real/torch_models/single'
-    model = load_sf_model(Path(torch_model_dir))
+    model = load_sf_model(Path(torch_model_dir), model_type='single')
 
     # get the pytorch model outputs on a random input observation. You can also set this to be some custom observation
     # if you want to debug a specific observation input
@@ -55,6 +55,68 @@ def test_compare_torch_to_c_model_outputs_single_drone():
     assert np.allclose(torch_model_out, outdata)
 
 
+def compare_torch_to_c_model_multi_drone_attention():
+    project_root = Path.home().joinpath('quad-swarm-rl')
+    os.chdir(str(project_root))
+
+    # prepare the c model and main method for evaluation
+    c_model_dir = Path('/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-1-dir_see_0_q.n.age_1/attention/')
+    c_model_path = c_model_dir.joinpath('model_test_1.c')
+    shared_lib_path = c_model_dir.joinpath('multi_attn.so')
+    subprocess.run(
+        ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],
+        check=True,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE
+    )
+
+    import ctypes
+    from numpy.ctypeslib import ndpointer
+    lib = ctypes.cdll.LoadLibrary(str(shared_lib_path))
+    func = lib.main
+    func.restype = None
+    func.argtypes = [
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+    ]
+
+    torch_model_dir = '/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-1-dir_see_0_q.n.age_1/'
+    model = load_sf_model(Path(torch_model_dir), model_type='attention')
+
+    # test 1000 times on different random inputs
+    for _ in range(1000):
+
+        # check the obstacle encoder outputs
+        obstacle_obs = torch.rand(8)
+        torch_obstacle_out = model.actor_encoder.obstacle_encoder(obstacle_obs).detach().numpy()
+        obst_indata = obstacle_obs.detach().numpy()
+        obst_outdata = np.zeros(256).astype(np.float32)  # TODO: make this cfg.rnn_size instead of hardcoded
+
+        self_obs = torch.randn(19)
+        self_indata = self_obs.detach().numpy()
+
+        obs_dict = {'obs': torch.concat([self_obs, obstacle_obs]).view(1, -1)}
+        torch_ff_out = model.actor_encoder(obs_dict).detach().numpy()
+
+        torch_thrust_out = model.action_parameterization(model.actor_encoder(obs_dict))[1].means.flatten().detach().numpy()
+        thrust_out = np.zeros(4).astype(np.float32)
+
+        func(self_indata, obst_indata, obst_outdata, thrust_out)
+
+        #tokens = np.vstack((token1_out, token2_out))
+        print()
+        print(torch_ff_out)
+        assert np.allclose(torch_obstacle_out, obst_outdata, atol=1e-6)
+        # assert np.allclose(torch_self_out, self_outdata, atol=1e-6)
+        # assert np.allclose(torch_ff_out, ff_outdata, atol=1e-6)
+        #assert np.allclose(torch_nbr_out, nbr_outdata, atol=1e-6)
+        #assert np.allclose(torch_attn_output, tokens, atol=1e-6)
+        print(torch_thrust_out, thrust_out)
+        assert np.allclose(torch_thrust_out, thrust_out, atol=1e-6)
+
+
 if __name__ == '__main__':
-    test_compare_torch_to_c_model_outputs_single_drone()
+    compare_torch_to_c_model_multi_drone_attention()
     print('Pass Unit Test!')

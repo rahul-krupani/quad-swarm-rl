@@ -13,12 +13,25 @@ headers_network_evaluate = """
 
 """
 
+headers_multi_agent_attention = """
+// attention stuff
+static const int D_MODEL = 256;
+static const int NUM_TOKENS = 2;
+static const float EPS = 0.000001; // 1e-6
+
+static float obstacle_embeds[OBST_DIM];
+static float output_embeds[2 * D_MODEL];
+
+float base;
+float exponent;
+"""
 
 headers_evaluation = """
 #include <random>
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <cstring> 
 
 
 typedef struct control_t_n {
@@ -28,10 +41,15 @@ typedef struct control_t_n {
 	float thrust_3;
 } control_t_n;
 
-void networkEvaluate(control_t_n* control_n, const float* state_array, const float* neighbor_array);
+void networkEvaluate(control_t_n* control_n, const float* state_array);
+
+static const int NEIGHBORS = 0;
+static const int NBR_DIM = 0; 
+
+static const int NUM_OBSTACLES = 2; 
+static const int OBST_DIM = 8;
 
 """
-
 
 constants = """
 
@@ -101,6 +119,107 @@ float clip(float v, float min, float max) {
 	return v;
 }
 
+"""
+
+attention_body = """
+void singleHeadAttention() {
+        uint8_t i, j, k;
+        // fill the tokens matrix with obstacle and neighbor embeddings
+        for (i = 0; i < D_MODEL; i++) {
+            tokens[0][i] = nbr_output_0[i];
+            tokens[1][i] = obst_output_0[i];
+        }
+
+        // save the residual
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < D_MODEL; j++) {
+                residual[i][j] = tokens[i][j];
+            }
+        }
+
+        // compute Q, K, V projection 
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < D_MODEL; j++) {
+                q_outputs[i][j] = 0;
+                k_outputs[i][j] = 0;
+                v_outputs[i][j] = 0;
+                for (k = 0; k < D_MODEL; k++) {
+                    q_outputs[i][j] += tokens[i][k] * actor_encoder_attention_layer_w_qs_weight[k][j]; 
+                    k_outputs[i][j] += tokens[i][k] * actor_encoder_attention_layer_w_ks_weight[k][j];
+                    v_outputs[i][j] += tokens[i][k] * actor_encoder_attention_layer_w_vs_weight[k][j];
+                }
+            }
+        }
+
+        // compute attention weights and parts of softmax
+        for (i = 0; i < NUM_TOKENS; i++) {
+            softmax_sums[i] = 0;
+            for (int j = 0; j < NUM_TOKENS; j++) {
+                attn_weights[i][j] = 0;
+                for (k = 0; k < D_MODEL; k++) {
+                    attn_weights[i][j] += (q_outputs[i][k] / sqrt((float)D_MODEL)) * k_outputs[j][k];
+                }
+                softmax_sums[i] += exp(attn_weights[i][j]);
+            }
+        }
+
+        // softmax
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < NUM_TOKENS; j++) {
+                attn_weights[i][j] = exp(attn_weights[i][j]) / softmax_sums[i];
+            }
+        }
+
+        // compute query 
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < D_MODEL; j++) {
+                query_output[i][j] = 0;
+                for (k = 0; k < NUM_TOKENS; k++) {
+                    query_output[i][j] += attn_weights[i][k] * v_outputs[k][j];
+                }
+            }
+        }
+
+        // compute the q embeddings 
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < D_MODEL; j++) {
+                query_embeds[i][j] = 0;
+                for (k = 0; k < D_MODEL; k++) {
+                    query_embeds[i][j] += query_output[i][k] * actor_encoder_attention_layer_fc_weight[k][j];
+                }
+                // add the residual
+                query_embeds[i][j] += residual[i][j];
+            }
+        }
+
+        // calculate per-token mean
+        for (i = 0; i < NUM_TOKENS; i++){
+            last_layer_means[i] = 0;
+            for (j = 0; j < D_MODEL; j++) {
+                last_layer_means[i] +=  query_embeds[i][j];
+            }
+            last_layer_means[i] = last_layer_means[i] / (float)D_MODEL;
+        }
+
+        // calculate per-token variance
+        for (i = 0; i < NUM_TOKENS; i++) {
+            last_layer_variances[i] = 0;
+            for (j = 0; j < D_MODEL; j++) {
+                base = query_embeds[i][j] - last_layer_means[i];
+                exponent = pow(base, 2);
+                last_layer_variances[i] += exponent;
+            }
+            last_layer_variances[i] = last_layer_variances[i] / (float)(D_MODEL);
+        }
+
+        // perform layer norm (2x16) x (16)
+        for (i = 0; i < NUM_TOKENS; i++) {
+            for (j = 0; j < D_MODEL; j++) {
+                attn_embeds[i][j] = (query_embeds[i][j] - last_layer_means[i]) / (sqrt(last_layer_variances[i] + EPS)) * actor_encoder_attention_layer_layer_norm_weight[j]; 
+                attn_embeds[i][j] += actor_encoder_attention_layer_layer_norm_bias[j]; 
+            }
+        }
+}
 """
 
 controller_entry = """
@@ -242,6 +361,50 @@ int main(const float *indatav, size_t size, float *outdatav)
     outdatav[2] = motorThrusts.thrust_2;
     outdatav[3] = motorThrusts.thrust_3;
     return EXIT_SUCCESS;
+}
+
+"""
+
+single_drone_obst_eval = """
+
+int main(const float *indatav, size_t size, float *outdatav)
+{
+    size_t i;
+    control_t_n motorThrusts;
+
+
+    networkEvaluate(&motorThrusts, indatav);
+
+    outdatav[0] = motorThrusts.thrust_0;
+    outdatav[1] = motorThrusts.thrust_1;
+    outdatav[2] = motorThrusts.thrust_2;
+    outdatav[3] = motorThrusts.thrust_3;
+    return EXIT_SUCCESS;
+}
+
+"""
+
+multi_drone_attn_eval = """
+
+int main(const float *self_indatav, float *obst_indatav, float *obst_outdata, float *outdatav)
+{
+    size_t i;
+    control_t_n motorThrusts;
+
+    obstacleEmbedder(obst_indatav);
+
+    for (int i = 0; i < D_MODEL; i++) {
+        obst_outdata[i] = obstacle_embeds[i];
+    }
+
+    networkEvaluate(&motorThrusts, self_indatav);
+
+    outdatav[0] = motorThrusts.thrust_0;
+    outdatav[1] = motorThrusts.thrust_1;
+    outdatav[2] = motorThrusts.thrust_2;
+    outdatav[3] = motorThrusts.thrust_3;
+
+    return EXIT_SUCCESS; 
 }
 
 """
