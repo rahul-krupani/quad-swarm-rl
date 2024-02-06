@@ -133,18 +133,19 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
 
 @njit
 def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_max_dist,
-                              quad_rotations):
+                              quad_rotations, scan_angle_arr, num_rays, fov_angle):
         """
             quad_poses:     quadrotor positions, only with xy pos
             obst_poses:     obstacle positions, only with xy pos
             quad_vels:      quadrotor velocities, only with xy vel
             obst_radius:    obstacle raidus
         """
-        quads_obs = scan_max_dist * np.ones((len(quad_poses), 4*4))
-        scan_angle_arr = np.array([0.])
-        fov_angle = np.pi / 180 * 45
         sensor_offset = 0.01625
-        modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])
+        modifications = []
+        for i in range(-num_rays+1, num_rays, 2):
+            modifications.append(i*(fov_angle/ (num_rays*2)))
+        modifications = np.array(modifications)
+        quads_obs = scan_max_dist * np.ones((len(quad_poses), len(scan_angle_arr) * num_rays))
 
         for q_id in range(len(quad_poses)):
             q_pos_xy = quad_poses[q_id][:2]
@@ -155,27 +156,32 @@ def get_surround_multi_ranger_depth(quad_poses, obst_poses, obst_radius, scan_ma
                 for sec_id, sec in enumerate(modifications):
                     cur_rad = base_rad + rad_shift + sec
                     cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+
+                    # Check distances with wall
                     for w_id in range(len(walls)):
                         wall_dir = walls[w_id] - q_pos_xy
                         if np.dot(wall_dir, cur_dir) > 0:
                             angle = np.arccos(
                                 np.dot(wall_dir, cur_dir) / (np.linalg.norm(wall_dir) * np.linalg.norm(cur_dir)))
-                            if angle <= fov_angle / 16:
-                                quads_obs[q_id][ray_id*8+sec_id] = min(quads_obs[q_id][ray_id*8+sec_id], (np.linalg.norm(wall_dir))-sensor_offset)
+
+                            # Check if shortest line to wall is in FOV, else project to edge of FOV
+                            if angle <= fov_angle / (num_rays*2):
+                                quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], (np.linalg.norm(wall_dir))-sensor_offset)
                             else:
-                                quads_obs[q_id][ray_id*8+sec_id] = min(quads_obs[q_id][ray_id*8+sec_id],
+                                quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id],
                                                                        (np.linalg.norm(wall_dir) / np.cos(
-                                                                  angle - (fov_angle / 16)))-sensor_offset)
+                                                                  angle - (fov_angle / (num_rays*2))))-sensor_offset)
+
+                    # Check distances with obstacles
                     for o_id in range(len(obst_poses)):
                         o_pos_xy = obst_poses[o_id][:2]
 
                         # Returns distance and length of the path inside the circle along the shortest distance vector
                         distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
-                                                                           fov_angle / 8)
+                                                                           fov_angle / num_rays)
                         if distance is not None:
-                            quads_obs[q_id][ray_id*8+sec_id] = min(quads_obs[q_id][ray_id*8+sec_id], distance-sensor_offset)
+                            quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
 
-            # quads_obs[q_id][len(scan_angle_arr)] = min(quads_obs[q_id][len(scan_angle_arr)],room_dims[2] - q_z)
 
         quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
         return quads_obs

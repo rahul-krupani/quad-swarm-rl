@@ -61,7 +61,7 @@ def compare_torch_to_c_model_multi_drone_attention():
 
     # prepare the c model and main method for evaluation
     c_model_dir = Path('/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-1-dir_see_0_q.n.age_1/attention/')
-    c_model_path = c_model_dir.joinpath('model_test_1.c')
+    c_model_path = c_model_dir.joinpath('model_test.c')
     shared_lib_path = c_model_dir.joinpath('multi_attn.so')
     subprocess.run(
         ['g++', '-fPIC', '-shared', '-o', str(shared_lib_path), str(c_model_path)],

@@ -32,7 +32,7 @@ def parse_args():
                         help='Path where the policy and cfg is stored')
     parser.add_argument('--output_dir', type=str, default='train_dir/00_ToFs-1-dir_see_0_q.n.age_1',
                         help='Where you want the c model to be saved')
-    parser.add_argument('--output_model_name', type=str, default='model_single_ToF.c')
+    parser.add_argument('--output_model_name', type=str, default='model_single_ToF_6_floats.c')
     parser.add_argument('--testing', type=lambda x: bool(strtobool(x)), default=False,
                         help='Whether or not to save the c model in testing mode. Enable this if you want to run the '
                              'unit test to make sure the output of the c model is the same as the pytorch model. Set '
@@ -103,7 +103,8 @@ def process_layer(name: str, param: nn.Parameter, type: str):
         for row in param:
             weight += '{'
             for num in row:
-                weight += str(num.item()) + ','
+                #print(type(num.item()))
+                weight += str("%.6f" % num.item()) + ','
             # get rid of comma after the last number
             weight = weight[:-1]
             weight += '},'
@@ -114,7 +115,7 @@ def process_layer(name: str, param: nn.Parameter, type: str):
     else:
         bias = 'static const float ' + name + '[' + str(param.shape[0]) + '] = {'
         for num in param:
-            bias += str(num.item()) + ','
+            bias += str("%.6f" % num.item()) + ','
         # get rid of comma after last number
         bias = bias[:-1]
         bias += '};\n'

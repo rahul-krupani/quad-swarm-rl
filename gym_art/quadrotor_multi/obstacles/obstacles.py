@@ -19,13 +19,14 @@ class MultiObstacles:
         self.count = 0
         self.hist = []
         main_arr = np.array([0., np.pi])
-        fov_angle = 45 * np.pi / 180
-        self.modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])
-        self.scan_angle_arr = []
-        for i in main_arr:
-            for j in self.modifications:
-                self.scan_angle_arr.append(i+j)
-        self.scan_angle_arr = np.array(self.scan_angle_arr)
+        self.fov_angle = 45 * np.pi / 180
+        self.scan_angle_arr = np.array([0.])
+        # self.modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])
+        # self.scan_angle_arr = []
+        # for i in main_arr:
+        #     for j in self.modifications:
+        #         self.scan_angle_arr.append(i+j)
+        # self.scan_angle_arr = np.array(self.scan_angle_arr)
 
         self.mapper = Mapping(size=10, resolution=10)
         self.mapper.create_empty_map()
@@ -49,7 +50,11 @@ class MultiObstacles:
         quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr,
                                                         obst_radius=self.obstacle_radius,
                                                         scan_max_dist=2.0,
-                                                        quad_rotations=quads_rot)
+                                                        quad_rotations=quads_rot,
+                                                        scan_angle_arr=self.scan_angle_arr,
+                                                        fov_angle=self.fov_angle,
+                                                        num_rays=8
+                                                        )
         # dist = quads_sdf_obs
 
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
@@ -85,7 +90,11 @@ class MultiObstacles:
         # pos_xy_yaw = np.concatenate((quads_pos[:, :2], q_yaws), axis=1)
 
         quads_sdf_obs = get_surround_multi_ranger_depth(quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-                                      scan_max_dist=2.0, quad_rotations=quads_rot)
+                                      scan_max_dist=2.0, quad_rotations=quads_rot,
+                                                        scan_angle_arr=self.scan_angle_arr,
+                                                        fov_angle=self.fov_angle,
+                                                        num_rays=8
+                                                        )
         # dist = quads_sdf_obs
 
         # for agent in range(pos_xy_yaw.shape[0]):
