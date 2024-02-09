@@ -305,7 +305,7 @@ class QuadrotorSingle:
             "floor": [np.zeros(1), self.room_box[1][2] * np.ones(1)],
             "octmap": [-10 * np.ones(9), 10 * np.ones(9)],
             "multi-ranger": [-10 * np.ones(5), 10 * np.ones(5)],
-            "depth-map": [-10 * np.ones(8), 10 * np.ones(8)]
+            "depth-map": [-10 * np.ones(32), 10 * np.ones(32)]
         }
         self.obs_comp_names = list(self.obs_space_low_high.keys())
         self.obs_comp_sizes = [self.obs_space_low_high[name][1].size for name in self.obs_comp_names]

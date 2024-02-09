@@ -14,12 +14,12 @@ headers_network_evaluate = """
 """
 
 headers_multi_agent_attention = """
-// attention stuff
-static const int D_MODEL = 256;
-static const int NUM_TOKENS = 2;
-static const float EPS = 0.000001; // 1e-6
+#define D_MODEL 16;
+#define NUM_TOKENS 2;
+#define EPS 0.000001; // 1e-6
+#define OBST_DIM 8
 
-static float obstacle_embeds[OBST_DIM];
+static float obstacle_embeds[D_MODEL];
 static float output_embeds[2 * D_MODEL];
 
 float base;
