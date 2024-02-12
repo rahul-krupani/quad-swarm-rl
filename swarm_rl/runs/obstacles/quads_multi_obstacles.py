@@ -11,15 +11,15 @@ _params = ParamGrid(
 OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     ' --num_workers=36 --num_envs_per_worker=4 '
     '--quads_neighbor_visible_num=-1 --quads_neighbor_obs_type=none '
-    '--quads_obstacle_obs_type=depth-map --quads_obst_hidden_size=16 '
+    '--quads_obstacle_obs_type=depth-map --quads_obst_hidden_size=32 '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones '
-    '--wandb_group=ToFs-4-dir-16'
+    '--wandb_group=ToFs-1-dir-32-empty'
 )
 
 _experiment = Experiment(
-    "ToFs-4-dir-16",
+    "ToFs-1-dir-32-empty",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
 
-RUN_DESCRIPTION = RunDescription("ToFs-4-dir-16", experiments=[_experiment])
+RUN_DESCRIPTION = RunDescription("ToFs-1-dir-32-empty", experiments=[_experiment])

@@ -19,7 +19,7 @@ class MultiObstacles:
         self.count = 0
         self.hist = []
         self.fov_angle = 45 * np.pi / 180
-        self.scan_angle_arr = np.array([0., np.pi/2, np.pi, -np.pi/2])
+        self.scan_angle_arr = np.array([0.])
         # self.modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])
         # self.scan_angle_arr = []
         # for i in main_arr:

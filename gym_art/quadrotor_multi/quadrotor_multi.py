@@ -315,6 +315,7 @@ class QuadrotorEnvMulti(gym.Env):
         obst_pos_arr = []
         # 0: No Obst, 1: Obst
         obst_map = np.zeros([obst_area_length, obst_area_width])
+        return obst_map, obst_pos_arr, cell_centers
         for obst_id in obst_index:
             rid, cid = obst_id // obst_area_width, obst_id - (obst_id // obst_area_width) * obst_area_width
             obst_map[rid, cid] = 1
