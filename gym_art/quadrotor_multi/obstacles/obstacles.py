@@ -19,7 +19,7 @@ class MultiObstacles:
         self.count = 0
         self.hist = []
         self.fov_angle = 45 * np.pi / 180
-        self.scan_angle_arr = np.array([0.])
+        self.scan_angle_arr = np.array([0., np.pi/2, np.pi, -np.pi/2])
         # self.modifications = np.array([-7 * (fov_angle / 16), -5 * (fov_angle / 16), -3 * (fov_angle / 16), -1 * (fov_angle / 16), (fov_angle / 16), 3 * (fov_angle / 16), 5 * (fov_angle / 16), 7 * (fov_angle / 16)])
         # self.scan_angle_arr = []
         # for i in main_arr:
@@ -32,6 +32,9 @@ class MultiObstacles:
 
     def reset(self, obs, quads_pos, pos_arr, quads_rot):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
+        print(len(pos_arr))
+        if len(pos_arr) == 0:
+            self.pos_arr = np.array([[15., 15., 5.]])
         # quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
         #                                   quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
@@ -52,8 +55,9 @@ class MultiObstacles:
                                                         quad_rotations=quads_rot,
                                                         scan_angle_arr=self.scan_angle_arr,
                                                         fov_angle=self.fov_angle,
-                                                        num_rays=8
+                                                        num_rays=4
                                                         )
+        #print(quads_sdf_obs)
         # dist = quads_sdf_obs
 
         # quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
@@ -92,8 +96,9 @@ class MultiObstacles:
                                       scan_max_dist=2.0, quad_rotations=quads_rot,
                                                         scan_angle_arr=self.scan_angle_arr,
                                                         fov_angle=self.fov_angle,
-                                                        num_rays=8
+                                                        num_rays=4
                                                         )
+        #print(quads_sdf_obs)
         # dist = quads_sdf_obs
 
         # for agent in range(pos_xy_yaw.shape[0]):

@@ -305,7 +305,7 @@ class QuadrotorSingle:
             "floor": [np.zeros(1), self.room_box[1][2] * np.ones(1)],
             "octmap": [-10 * np.ones(9), 10 * np.ones(9)],
             "multi-ranger": [-10 * np.ones(5), 10 * np.ones(5)],
-            "depth-map": [-10 * np.ones(8), 10 * np.ones(8)]
+            "depth-map": [np.zeros(16), 10 * np.ones(16)]
         }
         self.obs_comp_names = list(self.obs_space_low_high.keys())
         self.obs_comp_sizes = [self.obs_space_low_high[name][1].size for name in self.obs_comp_names]
@@ -396,14 +396,15 @@ class QuadrotorSingle:
         if self.box < 10:
             self.box = self.box * self.box_scale
         x, y, z = self.np_random.uniform(-self.box, self.box, size=(3,)) + self.spawn_point
+        z = 0.0
 
         if self.dim_mode == '1D':
             x, y = self.goal[0], self.goal[1]
         elif self.dim_mode == '2D':
             y = self.goal[1]
         # Since being near the groud means crash we have to start above
-        if z < 0.75:
-            z = 0.75
+        # if z < 0.75:
+        #     z = 0.75
         pos = npa(x, y, z)
 
         # INIT STATE

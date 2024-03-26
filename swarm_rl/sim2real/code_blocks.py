@@ -9,15 +9,15 @@ headers_controller_nn = """
 """
 
 headers_network_evaluate = """
-#include "network_evaluate.h"
+#include "network_evaluate_tof.h"
+#include <string.h>
 
 """
 
 headers_multi_agent_attention = """
-#define D_MODEL 16;
-#define NUM_TOKENS 2;
-#define EPS 0.000001; // 1e-6
-#define OBST_DIM 8
+#define D_MODEL 32
+#define NUM_TOKENS 2
+#define EPS 0.000001 // 1e-6
 
 static float obstacle_embeds[D_MODEL];
 static float output_embeds[2 * D_MODEL];

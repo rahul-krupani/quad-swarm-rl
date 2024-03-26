@@ -315,7 +315,7 @@ class QuadrotorEnvMulti(gym.Env):
         obst_pos_arr = []
         # 0: No Obst, 1: Obst
         obst_map = np.zeros([obst_area_length, obst_area_width])
-        return obst_map, obst_pos_arr, cell_centers
+        #return obst_map, obst_pos_arr, cell_centers
         for obst_id in obst_index:
             rid, cid = obst_id // obst_area_width, obst_id - (obst_id // obst_area_width) * obst_area_width
             obst_map[rid, cid] = 1
@@ -605,6 +605,8 @@ class QuadrotorEnvMulti(gym.Env):
         if self_state_update_flag:
             obs = [e.state_vector(e) for e in self.envs]
 
+        print(obs)
+
         # Concatenate observations of neighbor drones
         if self.num_use_neighbor_obs > 0:
             obs = self.add_neighborhood_obs(obs)
@@ -613,6 +615,7 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             quads_rot = np.array([e.dynamics.rot for e in self.envs])
             obs = self.obstacles.step(obs=obs, quads_pos=self.pos, quads_rot=quads_rot)
+
 
         # 6. Update info for replay buffer
         # Once agent learns how to take off, activate the replay buffer

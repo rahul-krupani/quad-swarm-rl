@@ -79,6 +79,20 @@ class Scenario_o_base(QuadrotorScenario):
 
         return np.array(generated_points)
 
+    def generate_pos_obst_map_floor(self, num_agents):
+        ids = np.random.choice(range(len(self.free_space)), num_agents, replace=False)
+
+        generated_points = []
+        for idx in ids:
+            x, y = self.free_space[idx][0], self.free_space[idx][1]
+            width = self.obstacle_map.shape[0]
+            index = x + (width * y)
+            pos_x, pos_y = self.cell_centers[index]
+            z_list_start = 0.0
+            generated_points.append(np.array([pos_x, pos_y, z_list_start]))
+
+        return np.array(generated_points)
+
     def check_surroundings(self, row, col):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
         obstacle_map = self.obstacle_map

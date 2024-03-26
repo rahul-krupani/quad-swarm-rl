@@ -28,11 +28,11 @@ from swarm_rl.train import register_swarm_components
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_model_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-1-dir-16-2_see_0_q.n.age_1',
+    parser.add_argument('--torch_model_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-30-16-5-density_see_0_q.n.age_1',
                         help='Path where the policy and cfg is stored')
-    parser.add_argument('--output_dir', type=str, default='train_dir/00_ToFs-1-dir-16-2_see_0_q.n.age_1',
+    parser.add_argument('--output_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-30-16-5-density_see_0_q.n.age_1',
                         help='Where you want the c model to be saved')
-    parser.add_argument('--output_model_name', type=str, default='model_single_ToF.c')
+    parser.add_argument('--output_model_name', type=str, default='model_ToF_30_16_18state_2range_5density.c')
     parser.add_argument('--testing', type=lambda x: bool(strtobool(x)), default=False,
                         help='Whether or not to save the c model in testing mode. Enable this if you want to run the '
                              'unit test to make sure the output of the c model is the same as the pytorch model. Set '
@@ -452,7 +452,7 @@ def neighbor_encoder_c_string(prefix: str, weight_names: List[str], bias_names: 
 
 
 def obstacle_encoder_c_str(prefix: str, weight_names: List[str], bias_names: List[str]):
-    method = f"""void obstacleEmbedder(const float obstacle_inputs[OBST_DIM]) {{
+    method = f"""void obstacleEmbedder(float obstacle_inputs[OBST_DIM]) {{
         //reset embeddings accumulator to zero
         memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
 
@@ -553,9 +553,9 @@ def generate_c_model_attention(model: nn.Module, output_path: str, output_folder
     source += headers_multi_agent_attention
 
     # helper funcs
-    source += linear_activation
-    source += sigmoid_activation
-    source += relu_activation
+    # source += linear_activation
+    # source += sigmoid_activation
+    # source += relu_activation
 
     # network eval func
     source += structures
