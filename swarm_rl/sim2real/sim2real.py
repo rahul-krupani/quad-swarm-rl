@@ -28,11 +28,11 @@ from swarm_rl.train import register_swarm_components
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--torch_model_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-30-16-5-density_see_0_q.n.age_1',
+    parser.add_argument('--torch_model_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/03_single_sim_freq_4_8_see_3333_q.s.ste_8',
                         help='Path where the policy and cfg is stored')
-    parser.add_argument('--output_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/00_ToFs-30-16-5-density_see_0_q.n.age_1',
+    parser.add_argument('--output_dir', type=str, default='/home/resl/newenv/quad-swarm-rl/train_dir/03_single_sim_freq_4_8_see_3333_q.s.ste_8',
                         help='Where you want the c model to be saved')
-    parser.add_argument('--output_model_name', type=str, default='model_ToF_30_16_18state_2range_5density.c')
+    parser.add_argument('--output_model_name', type=str, default='model_25Hz_3333.c')
     parser.add_argument('--testing', type=lambda x: bool(strtobool(x)), default=False,
                         help='Whether or not to save the c model in testing mode. Enable this if you want to run the '
                              'unit test to make sure the output of the c model is the same as the pytorch model. Set '
@@ -347,6 +347,8 @@ def self_encoder_attn_c_str(prefix: str, weight_names: List[str], bias_names: Li
         // Concat self_embed, neighbor_embed and obst_embed
         for (int i = 0; i < self_structure[1][1]; i++) {{
             output_embeds[i] = output_1[i];
+        }}
+        for (int i = 0; i < obst_structure[1][1]; i++) {{
             output_embeds[i + self_structure[1][1]] = obstacle_embeds[i];
         }}
     '''
@@ -357,7 +359,7 @@ def self_encoder_attn_c_str(prefix: str, weight_names: List[str], bias_names: Li
         // Feedforward layer
         for (int i = 0; i < self_structure[2][1]; i++) {{
             output_2[i] = 0;
-            for (int j = 0; j < 2 * self_structure[1][1]; j++) {{
+            for (int j = 0; j < self_structure[2][0]; j++) {{
                 output_2[i] += output_embeds[j] * actor_encoder_feed_forward_0_weight[j][i];
                 }}
             output_2[i] += actor_encoder_feed_forward_0_bias[i];
@@ -540,8 +542,8 @@ def generate_c_model_attention(model: nn.Module, output_path: str, output_folder
             method = self_encoder_attn_c_str(enc_name, weight_names, bias_names)
         # elif 'nbr' in enc_name:
         #     method = neighbor_encoder_c_string(enc_name, weight_names, bias_names)
-        elif 'obst' in enc_name:
-            method = obstacle_encoder_c_str(enc_name, weight_names, bias_names)
+        # elif 'obst' in enc_name:
+        #     method = obstacle_encoder_c_str(enc_name, weight_names, bias_names)
         # else:
         #     # attention
         #     method = attention_body

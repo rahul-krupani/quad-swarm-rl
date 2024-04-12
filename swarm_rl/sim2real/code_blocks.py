@@ -15,12 +15,10 @@ headers_network_evaluate = """
 """
 
 headers_multi_agent_attention = """
-#define D_MODEL 32
-#define NUM_TOKENS 2
 #define EPS 0.000001 // 1e-6
 
-static float obstacle_embeds[D_MODEL];
-static float output_embeds[2 * D_MODEL];
+static float obstacle_embeds[4];
+static float output_embeds[20];
 
 float base;
 float exponent;
