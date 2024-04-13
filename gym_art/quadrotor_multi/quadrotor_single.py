@@ -19,7 +19,7 @@ References:
 """
 import copy
 
-from gym.utils import seeding
+from gymnasium.utils import seeding
 
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
@@ -153,7 +153,7 @@ class QuadrotorSingle:
         self.rew_coeff = None
         # EPISODE PARAMS
         self.ep_time = ep_time  # In seconds
-        self.sim_steps = sim_steps
+        self.sim_steps = 4 #sim_steps
         self.dt = 1.0 / sim_freq
         self.ep_len = int(self.ep_time / (self.dt * self.sim_steps))
         self.tick = 0
