@@ -18,7 +18,12 @@ class MultiObstacles:
         self.num_rays = 4
 
     def reset(self, obs, quads_pos, pos_arr, quads_rots=None):
+        if len(pos_arr) == 0:
+            pos_arr = np.array([[10., 10., 5.]])
+
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
+
+        #quads_sdf_obs = 2.0 * np.ones((len(quads_pos), len(self.scan_angle_arr) * self.num_rays))
 
         if self.obs_type == 'octomap':
             quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
@@ -36,6 +41,9 @@ class MultiObstacles:
         return obs
 
     def step(self, obs, quads_pos, quads_rots=None):
+
+        # quads_sdf_obs = 2.0 * np.ones((len(quads_pos), len(self.scan_angle_arr) * self.num_rays))
+
         if self.obs_type == 'octomap':
             quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
             quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
