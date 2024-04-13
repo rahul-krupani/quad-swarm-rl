@@ -303,6 +303,7 @@ class QuadrotorSingle:
             "wall": [np.zeros(6), 5.0 * np.ones(6)],
             "floor": [np.zeros(1), self.room_box[1][2] * np.ones(1)],
             "octmap": [-10 * np.ones(9), 10 * np.ones(9)],
+            "ToFs": [np.zeros(16), 2*np.ones(16)],
         }
         self.obs_comp_names = list(self.obs_space_low_high.keys())
         self.obs_comp_sizes = [self.obs_space_low_high[name][1].size for name in self.obs_comp_names]
@@ -312,7 +313,7 @@ class QuadrotorSingle:
             obs_comps = obs_comps + (['rxyz'] + ['rvxyz']) * self.num_use_neighbor_obs
 
         if self.use_obstacles:
-            obs_comps = obs_comps + ["octmap"]
+            obs_comps = obs_comps + ["ToFs"]
 
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []

@@ -26,6 +26,106 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
 
     return quads_sdf_obs
 
+@njit
+def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
+    # Calculate the direction vector from the origin to the cylinder center
+    direction_vector = o_pos - q_pos
+    if np.linalg.norm(direction_vector) <= o_radius:
+        return 0, None
+
+    # Calculate the unit vector in the direction of the given view vector
+    view_vector = vector / np.linalg.norm(vector)
+
+    # Calculate the angle between the direction vector and the view vector
+    angle = np.arccos(np.dot(direction_vector, view_vector) / (np.linalg.norm(direction_vector) * np.linalg.norm(view_vector)))
+
+    if np.dot(direction_vector, view_vector) > 0:
+        if angle <= fov_angle/2:
+            return np.linalg.norm(direction_vector) - o_radius, 2*o_radius
+
+        # Calculate the angle between the direction vector and the normal to the cylinder surface
+        angle_to_surface = np.arcsin(o_radius / np.linalg.norm(direction_vector))
+
+        edge_vector_1 = np.dot(np.array([[np.cos(angle_to_surface), -np.sin(angle_to_surface)],[np.sin(angle_to_surface), np.cos(angle_to_surface)]]), direction_vector)
+        edge_vector_2 = np.dot(np.array([[np.cos(angle_to_surface), np.sin(angle_to_surface)],[-np.sin(angle_to_surface), np.cos(angle_to_surface)]]), direction_vector)
+
+        edge_angle_1 = np.arccos(np.dot(edge_vector_1, view_vector) / (np.linalg.norm(edge_vector_1) * np.linalg.norm(view_vector)))
+        edge_angle_2 = np.arccos(np.dot(edge_vector_2, view_vector) / (np.linalg.norm(edge_vector_2) * np.linalg.norm(view_vector)))
+
+        # Case where edge is in FOV
+        if edge_angle_1 <= fov_angle / 2 or edge_angle_2 <= fov_angle / 2:
+            # Create a triangle with direction vector
+            closest_dist = np.linalg.norm(direction_vector) * np.sin(angle - (fov_angle / 2))
+            full_dist = np.linalg.norm(direction_vector) * np.cos(angle - (fov_angle / 2))
+            if closest_dist <= o_radius:
+                len_in_obst = (o_radius ** 2 - closest_dist ** 2) ** 0.5
+                return full_dist - len_in_obst, 2 * len_in_obst
+            else:
+                return (None, None)
+        # Case where full FOV is between center and edge
+        if (np.dot(edge_vector_1, view_vector) > 0 and np.abs(angle_to_surface-(angle + edge_angle_1))<1e-5) or (
+                np.dot(edge_vector_1, view_vector) > 0 and np.abs(angle_to_surface-(angle + edge_angle_2))<1e-5):
+            # Create a triangle with direction vector
+            closest_dist = np.linalg.norm(direction_vector) * np.sin(angle - (fov_angle / 2))
+            full_dist = np.linalg.norm(direction_vector) * np.cos(angle - (fov_angle / 2))
+            len_in_obst = (o_radius ** 2 - closest_dist ** 2) ** 0.5
+            return full_dist - len_in_obst, 2 * len_in_obst
+    return (None, None)
+
+@njit
+def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
+                              quad_rotations, scan_angle_arr, num_rays, fov_angle):
+        """
+            quad_poses:     quadrotor positions, only with xy pos
+            obst_poses:     obstacle positions, only with xy pos
+            quad_vels:      quadrotor velocities, only with xy vel
+            obst_radius:    obstacle raidus
+        """
+        sensor_offset = 0.01625
+        modifications = []
+        for i in range(-num_rays+1, num_rays, 2):
+            modifications.append(i*(fov_angle/ (num_rays*2)))
+        modifications = np.array(modifications)
+        quads_obs = scan_max_dist * np.ones((len(quad_poses), len(scan_angle_arr) * num_rays))
+
+        for q_id in range(len(quad_poses)):
+            q_pos_xy = quad_poses[q_id][:2]
+            q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
+            base_rad = q_yaw
+            walls = np.array([[5, q_pos_xy[1]], [-5, q_pos_xy[1]], [q_pos_xy[0], 5], [q_pos_xy[1], -5]])
+            for ray_id, rad_shift in enumerate(scan_angle_arr):
+                for sec_id, sec in enumerate(modifications):
+                    cur_rad = base_rad + rad_shift + sec
+                    cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+
+                    # Check distances with wall
+                    for w_id in range(len(walls)):
+                        wall_dir = walls[w_id] - q_pos_xy
+                        if np.dot(wall_dir, cur_dir) > 0:
+                            angle = np.arccos(
+                                np.dot(wall_dir, cur_dir) / (np.linalg.norm(wall_dir) * np.linalg.norm(cur_dir)))
+
+                            # Check if shortest line to wall is in FOV, else project to edge of FOV
+                            if angle <= fov_angle / (num_rays*2):
+                                quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], (np.linalg.norm(wall_dir))-sensor_offset)
+                            else:
+                                quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id],
+                                                                       (np.linalg.norm(wall_dir) / np.cos(
+                                                                  angle - (fov_angle / (num_rays*2))))-sensor_offset)
+
+                    # Check distances with obstacles
+                    for o_id in range(len(obst_poses)):
+                        o_pos_xy = obst_poses[o_id][:2]
+
+                        # Returns distance and length of the path inside the circle along the shortest distance vector
+                        distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
+                                                                           fov_angle / num_rays)
+                        if distance is not None:
+                            quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
+
+
+        quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+        return quads_obs
 
 @njit
 def collision_detection(quad_poses, obst_poses, obst_radius, quad_radius):
