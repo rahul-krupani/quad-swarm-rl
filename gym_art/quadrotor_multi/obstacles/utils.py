@@ -72,6 +72,59 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
             return full_dist - len_in_obst, 2 * len_in_obst
     return (None, None)
 
+#@njit
+def get_ToFs_depthmap_subset(quad_poses, obst_poses, obst_radius, scan_max_dist,
+                              quad_rotations, scan_angle_arr, num_rays, fov_angle, obst_noise):
+        """
+            quad_poses:     quadrotor positions, only with xy pos
+            obst_poses:     obstacle positions, only with xy pos
+            quad_vels:      quadrotor velocities, only with xy vel
+            obst_radius:    obstacle raidus
+        """
+        sensor_offset = 0.01625
+        modifications = []
+        for i in range(-num_rays+1, num_rays, 2):
+            modifications.append(i*(fov_angle/ (num_rays*2)))
+        modifications = np.array(modifications)
+        quads_obs = scan_max_dist * np.ones((len(quad_poses), len(scan_angle_arr) * num_rays))
+
+        for q_id in range(len(quad_poses)):
+            q_pos_xy = quad_poses[q_id][:2]
+            q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
+            base_rad = q_yaw
+            walls = np.array([[5, q_pos_xy[1]], [-5, q_pos_xy[1]], [q_pos_xy[0], 5], [q_pos_xy[1], -5]])
+            for ray_id, rad_shift in enumerate(scan_angle_arr):
+                for sec_id, sec in enumerate(modifications):
+                    cur_rad = base_rad + rad_shift + sec
+                    cur_dir = np.array([np.cos(cur_rad), np.sin(cur_rad)])
+
+                    # Check distances with wall
+                    # for w_id in range(len(walls)):
+                    #     wall_dir = walls[w_id] - q_pos_xy
+                    #     if np.dot(wall_dir, cur_dir) > 0:
+                    #         angle = np.arccos(
+                    #             np.dot(wall_dir, cur_dir) / (np.linalg.norm(wall_dir) * np.linalg.norm(cur_dir)))
+                    #
+                    #         # Check if shortest line to wall is in FOV, else project to edge of FOV
+                    #         if angle <= fov_angle / (num_rays*2):
+                    #             quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], (np.linalg.norm(wall_dir)) - sensor_offset)
+                    #         else:
+                    #             quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], (np.linalg.norm(wall_dir) / np.cos(angle - (fov_angle / (num_rays*2)))) - sensor_offset)
+
+                    # Check distances with obstacles
+                    for o_id in range(obst_poses[q_id].shape[0]):
+                        o_pos_xy = obst_poses[q_id][o_id][:2]
+
+                        # Returns distance and length of the path inside the circle along the shortest distance vector
+                        distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
+                                                                           fov_angle / num_rays)
+                        if distance is not None:
+                            quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
+
+        quads_obs = quads_obs + np.random.normal(loc=0, scale=obst_noise, size=quads_obs.shape)
+        quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+        return quads_obs
+
 @njit
 def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
                               quad_rotations, scan_angle_arr, num_rays, fov_angle, obst_noise):
@@ -114,7 +167,8 @@ def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
                     # Check distances with obstacles
                     for o_id in range(len(obst_poses)):
                         o_pos_xy = obst_poses[o_id][:2]
-
+                        # if np.linalg.norm(o_pos_xy - q_pos_xy) < scan_max_dist:
+                        #     continue
                         # Returns distance and length of the path inside the circle along the shortest distance vector
                         distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
                                                                            fov_angle / num_rays)

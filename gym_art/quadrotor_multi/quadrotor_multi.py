@@ -375,9 +375,9 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm,
                                             obs_type=self.obst_obs_type, obst_noise=self.obst_noise,
-                                            obst_tof_resolution=self.obst_tof_resolution)
-            self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
-            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
+                                            obst_tof_resolution=self.obst_tof_resolution, grid_size=self.grid_size)
+            self.obst_map, obst_pos_arr, self.cell_centers = self.obst_generation_given_density()
+            self.scenario.reset(obst_map=self.obst_map, cell_centers=self.cell_centers)
         else:
             self.scenario.reset()
 
@@ -408,7 +408,7 @@ class QuadrotorEnvMulti(gym.Env):
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
             if self.obst_obs_type == "ToFs":
                 quads_rots = np.array([e.dynamics.rot for e in self.envs])
-                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr, quads_rots=quads_rots)
+                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr, quads_rots=quads_rots, cell_centers=self.cell_centers, obst_map=self.obst_map, obst_area_length=int(self.obst_spawn_area[0]))
             else:
                 obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
@@ -653,7 +653,7 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             if self.obst_obs_type == "ToFs":
                 quads_rots = np.array([e.dynamics.rot for e in self.envs])
-                obs = self.obstacles.step(obs=obs, quads_pos=self.pos, quads_rots=quads_rots)
+                obs = self.obstacles.step(obs=obs, quads_pos=self.pos, quads_rots=quads_rots, obst_map=self.obst_map, obst_area_length=int(self.obst_spawn_area[0]))
             else:
                 obs = self.obstacles.step(obs=obs, quads_pos=self.pos)
 
