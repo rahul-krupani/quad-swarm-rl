@@ -49,3 +49,6 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         # Reassign goals
         self.spawn_points = copy.deepcopy(self.start_point)
         self.goals = np.array([self.end_point for _ in range(self.num_agents)])
+
+        for i, env in enumerate(self.envs):
+            env.dynamic_goal = True
