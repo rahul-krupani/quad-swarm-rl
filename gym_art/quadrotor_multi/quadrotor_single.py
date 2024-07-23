@@ -85,20 +85,18 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
     cost_spin = rew_coeff["spin"] * cost_spin_raw
 
-    # if dynamic_goal:
-    #     # Goal is given as omega in roll, pitch, yaw axis
-    #     cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
-    #     cost_omega = rew_coeff["omega"] * cost_omega_raw
-    # else:
-    #     cost_omega = 0
-    cost_omega = 0
+    if dynamic_goal:
+        # Goal is given as omega in roll, pitch, yaw axis
+        cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
+        cost_omega = rew_coeff["omega"] * cost_omega_raw
+    else:
+        cost_omega = 0
         
-    # if dynamic_goal:
-    #     cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
-    #     cost_vel = rew_coeff["vel"] * cost_vel_raw
-    # else:
-    #     cost_vel = 0
-    cost_vel = 0
+    if dynamic_goal:
+        cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
+        cost_vel = rew_coeff["vel"] * cost_vel_raw
+    else:
+        cost_vel = 0
 
     # Loss crash for staying on the floor
     cost_crash_raw = float(on_floor)
