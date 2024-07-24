@@ -50,26 +50,26 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         if on_floor:
             cost_orient_raw = 3.0
         else:
-            # if dynamic_goal:
-            #     tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
-            #     rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
-            #
-            #     # Dynamic goal only contains relative yaw information
-            #     rel_yaw = abs(rot_yaw - goal[12])
-            #
-            #     cost_orient_raw = rel_yaw
-            # else:
-            tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
-            tmp_base_rot = scipy_rotation.from_matrix(base_rot)
+            if dynamic_goal:
+                tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
+                rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
+            
+                # Dynamic goal only contains relative yaw information
+                rel_yaw = abs(rot_yaw - goal[12])
+            
+                cost_orient_raw = rel_yaw
+            else:
+                tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
+                tmp_base_rot = scipy_rotation.from_matrix(base_rot)
 
-            # Extract the roll, pitch, and yaw angles
-            rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
-            base_yaw, base_pitch, base_roll = tmp_base_rot.as_euler('zxy', degrees=False)
+                # Extract the roll, pitch, and yaw angles
+                rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
+                base_yaw, base_pitch, base_roll = tmp_base_rot.as_euler('zxy', degrees=False)
 
-            rel_yaw, rel_pitch, rel_roll = abs(rot_yaw - base_yaw), abs(rot_pitch - base_pitch), abs(rot_roll - base_roll)
-            rel_yaw, rel_pitch, rel_roll = rel_yaw / np.pi, rel_pitch / np.pi, rel_roll / np.pi
+                rel_yaw, rel_pitch, rel_roll = abs(rot_yaw - base_yaw), abs(rot_pitch - base_pitch), abs(rot_roll - base_roll)
+                rel_yaw, rel_pitch, rel_roll = rel_yaw / np.pi, rel_pitch / np.pi, rel_roll / np.pi
 
-            cost_orient_raw = rel_yaw + rel_pitch + rel_roll
+                cost_orient_raw = rel_yaw + rel_pitch + rel_roll
     else:
         if on_floor:
             cost_orient_raw = 1.0

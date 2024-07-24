@@ -21,7 +21,7 @@ class MultiObstacles:
         if self.num_rays == 4:
             self.sample_freq = 3
         else:
-            self.sample_freq = 6
+            self.sample_freq = 7 # 14 Hz Updates
 
     def reset(self, obs, quads_pos, pos_arr, quads_rots=None):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
