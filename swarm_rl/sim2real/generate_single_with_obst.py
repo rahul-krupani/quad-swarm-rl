@@ -10,6 +10,14 @@ from swarm_rl.sim2real.sim2real_utils import process_layer
 def generate_c_model_single_obst(model, output_path, output_folder, testing=False):
     info = generate_c_weights_single_obst(model, transpose=True)
     model_state_dict = model.state_dict()
+    if 'obs_normalizer.running_mean_std.running_mean_std.obs.running_mean' in model_state_dict.keys():
+        mean = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_mean']
+        var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
+        m_str = process_layer('mean', mean, layer_type='bias')
+        v_str = process_layer('var', var, layer_type='bias')
+    else:
+        m_str = ""
+        v_str = ""
 
     source = ""
     structures = ""
@@ -66,6 +74,9 @@ def generate_c_model_single_obst(model, output_path, output_folder, testing=Fals
             source += w
         for b in biases:
             source += b
+
+    source += m_str
+    source += v_str
 
     source += methods
 

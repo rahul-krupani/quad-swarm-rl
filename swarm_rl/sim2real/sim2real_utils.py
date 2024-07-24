@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 from attrdict import AttrDict
 from sample_factory.model.actor_critic import create_actor_critic
+from gymnasium import spaces
 
 from swarm_rl.env_wrappers.quad_utils import make_quadrotor_env_multi
 from swarm_rl.train import register_swarm_components
@@ -27,7 +28,7 @@ def load_sf_model(model_dir, model_type):
 
     # Manually set some values
     args.visualize_v_value = False
-    args.quads_encoder_type = 'attention' if model_type == 'attention' else 'corl'
+    args.quads_encoder_type = 'attention' if (model_type == 'attention' or model_type == 'multi_obst_attn') else 'corl'
     args.quads_sim2real = True
     args.quads_domain_random = False
     args.quads_obst_density_random = False
@@ -58,7 +59,10 @@ def load_sf_model(model_dir, model_type):
     models = []
     c_model_names = []
     for model_path in model_paths:
-        model = create_actor_critic(args, env.observation_space, env.action_space)
+        obs_space = spaces.Dict({
+            'obs': env.observation_space,
+        })
+        model = create_actor_critic(args, obs_space, env.action_space)
         model.load_state_dict(torch.load(model_path)['model'])
         models.append(model)
 
