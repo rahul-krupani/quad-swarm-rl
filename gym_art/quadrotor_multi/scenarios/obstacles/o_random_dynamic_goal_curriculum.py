@@ -43,9 +43,6 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         return
 
     def reset(self, obst_map, cell_centers, training_steps): 
-        
-        for i, env in enumerate(self.envs):
-            env.dynamic_goal = True
   
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
@@ -56,7 +53,7 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
         
-        if (training_steps % 200e6) and (training_steps != 0):
+        if (training_steps % 200e6 == 0) and (training_steps != 0):
             self.vel_mean += 0.1
 
         for i in range(self.num_agents):
@@ -73,6 +70,9 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
             dist = np.linalg.norm(self.start_point[i] - final_goal)
 
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
+            
+            if (traj_speed < 0.15):
+                traj_speed = 0.15
 
             traj_duration = dist / traj_speed
    
@@ -86,6 +86,9 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         self.spawn_points = copy.deepcopy(self.start_point)
         
         self.goals = copy.deepcopy(self.end_point)
+              
+        for i, env in enumerate(self.envs):
+            env.dynamic_goal = True
         
         
         
