@@ -410,11 +410,8 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
             
             # Scenario based curriculum
             if (self.use_curriculum):
-                approx_total_training_steps = self.training_info.get('approx_total_training_steps', -1)
-                
-                if (approx_total_training_steps == -1):
-                    raise NotImplementedError("No Training Step Information Found!")
-                
+                approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
+
                 self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, training_steps=approx_total_training_steps)
             else:
                 self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
@@ -687,10 +684,7 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
                     perform_collision_with_ceiling(drone_dyn=self.envs[val].dynamics)
 
         # 4. Run the scenario passed to self.quads_mode
-        if(self.use_curriculum):
-            self.scenario.step(self.curriculum_state)
-        else:
-            self.scenario.step()
+        self.scenario.step()
 
         # 5. Collect final observations
         # Collect positions after physical interaction
