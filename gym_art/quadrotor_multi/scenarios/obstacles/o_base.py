@@ -62,7 +62,7 @@ class Scenario_o_base(QuadrotorScenario):
         width = self.obstacle_map.shape[0]
         index = x + (width * y)
         pos_x, pos_y = self.cell_centers[index]
-        z_list_start = np.random.uniform(low=0.75, high=3.0)
+        z_list_start = np.random.uniform(low=0.5, high=1.0)
         # xy_noise = np.random.uniform(low=-0.2, high=0.2, size=2)
         return np.array([pos_x, pos_y, z_list_start])
 
@@ -75,7 +75,7 @@ class Scenario_o_base(QuadrotorScenario):
             width = self.obstacle_map.shape[0]
             index = x + (width * y)
             pos_x, pos_y = self.cell_centers[index]
-            z_list_start = np.random.uniform(low=1.0, high=3.0)
+            z_list_start = np.random.uniform(low=0.5, high=1.0)
             generated_points.append(np.array([pos_x, pos_y, z_list_start]))
 
         return np.array(generated_points)
@@ -149,5 +149,5 @@ class Scenario_o_base(QuadrotorScenario):
         # Return the center coordinates of the largest square area as a tuple
         index = center_x + (m * center_y)
         pos_x, pos_y = self.cell_centers[index]
-        z_list_start = np.random.uniform(low=1.5, high=3.0)
+        z_list_start = np.random.uniform(low=0.5, high=1.0)
         return np.array([pos_x, pos_y, z_list_start])

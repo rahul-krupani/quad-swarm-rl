@@ -13,14 +13,14 @@ class Scenario_o_random(Scenario_o_base):
         pass
 
     def step(self):
-        tick = self.envs[0].tick
+        # tick = self.envs[0].tick
+        #
+        # if tick <= self.duration_step:
+        #     return
 
-        if tick <= self.duration_step:
-            return
-
-        self.duration_step += int(self.envs[0].ep_time * self.envs[0].control_freq)
-        for i, env in enumerate(self.envs):
-            env.goal = self.end_point[i]
+        # self.duration_step += int(self.envs[0].ep_time * self.envs[0].control_freq)
+        # for i, env in enumerate(self.envs):
+        #     env.goal = self.end_point[i]
 
         return
 
@@ -41,10 +41,12 @@ class Scenario_o_random(Scenario_o_base):
 
         self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
         self.end_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
+        for i in range(len(self.end_point)):
+            self.end_point[i][2] = 0.65
         # self.start_point = self.generate_pos_obst_map_2(self.num_agents)
         # self.end_point = self.generate_pos_obst_map_2(self.num_agents)
 
-        self.duration_step = int(np.random.uniform(low=2.0, high=4.0) * self.envs[0].control_freq)
+        # self.duration_step = int(np.random.uniform(low=2.0, high=4.0) * self.envs[0].control_freq)
         self.update_formation_and_relate_param()
 
         self.formation_center = np.array((0., 0., 2.))
