@@ -33,12 +33,8 @@ GRAV = 9.81  # default gravitational constant
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, curriculum_state, on_floor=False,
+def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False,
                             obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False):
-    if (curriculum_state):
-        rew_coeff["omega"] = 0.05
-        rew_coeff["vel"] = 0.05
-        rew_coeff["spin"] = 0.0
     
     # Distance to the goal
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
@@ -203,7 +199,6 @@ class QuadrotorSingle:
         self.obs_rel_rot = obs_rel_rot
         self.dynamic_goal = dynamic_goal
         self.use_curriculum = use_curriculum
-        self.curriculum_state = False # Shows if we are currently using curriculum or not
         self.base_rot = np.eye(3)
 
         # Room
@@ -300,9 +295,6 @@ class QuadrotorSingle:
         self.observation_space = self.make_observation_space()
 
         self._seed()
-        
-    def update_curriculum_state(self, state=bool):
-        self.curriculum_state = state
 
     def update_sense_noise(self, sense_noise):
         if isinstance(sense_noise, dict):
@@ -430,8 +422,7 @@ class QuadrotorSingle:
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
             rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
-            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal, 
-            curriculum_state=self.curriculum_state)
+            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
 
         self.tick += 1
         done = self.tick > self.ep_len

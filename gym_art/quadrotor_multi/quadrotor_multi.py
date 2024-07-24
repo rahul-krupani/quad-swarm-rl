@@ -231,7 +231,6 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
         self.apply_collision_force = True
         
         #Curriculum Metric
-        self.curriculum_state = [False for _ in range(len(self.envs))]
         self.use_curriculum = use_curriculum
         self.distance_to_goal_metric = [[] for _ in range(len(self.envs))] #Tracks the distance to goal for last 10 episode_extra_stats
 
@@ -411,27 +410,12 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
             
             # Scenario based curriculum
             if (self.use_curriculum):
-                for i in range(self.num_agents):
-                    
-                    # Curriculum Statistics
-                    if len(self.distance_to_goal_xy[i]) != 0: #Only append if we have data
-                        if len(self.distance_to_goal_metric[i]) == 20:
-                            self.distance_to_goal_metric[i].pop(0)
-                        self.distance_to_goal_metric[i].append(abs(self.distance_to_goal_xy[i][-1]) + abs(self.distance_to_goal_z[i][-1]))
-                    
-                    if (len(self.distance_to_goal_metric[i]) == 20):
-                        avg_distance = sum(self.distance_to_goal_metric[i]) / len(self.distance_to_goal_metric[i])
-                        
-                        
-                        approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
-                        
-                        # We only start curriculum when the drone gets an average of 0.8 meter within the goal for the past 10 episodes.
-                        # if (False):
-                        if (avg_distance <= 0.8) or (self.curriculum_state[i]) and (approx_total_training_steps > 300,000,000):
-                            self.envs[i].update_curriculum_state(True)
-                            self.curriculum_state[i] = self.envs[i].curriculum_state
+                approx_total_training_steps = self.training_info.get('approx_total_training_steps', -1)
                 
-                self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, curriculum_state=self.curriculum_state)
+                if (approx_total_training_steps == -1):
+                    raise NotImplementedError("No Training Step Information Found!")
+                
+                self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, training_steps=approx_total_training_steps)
             else:
                 self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
             
