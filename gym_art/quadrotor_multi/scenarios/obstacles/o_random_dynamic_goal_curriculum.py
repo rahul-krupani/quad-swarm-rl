@@ -53,8 +53,13 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
         
-        if (training_steps % 200e6 == 0) and (training_steps != 0):
-            self.vel_mean += 0.1
+        if (training_steps % 1e5 == 0) and (training_steps != 0):
+            print("Curriculum Velocity Mean: {} at Global Step: {}".format(self.vel_mean, training_steps))
+            
+        self.vel_mean = training_steps / 800e6
+
+        if (self.vel_mean > 0.8):
+            self.vel_mean = 0.8
 
         for i in range(self.num_agents):
             self.start_point[i] = self.generate_pos_obst_map()
@@ -71,8 +76,8 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
 
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
             
-            if (traj_speed < 0.15):
-                traj_speed = 0.15
+            if (traj_speed < 0.25):
+                traj_speed = 0.25
 
             traj_duration = dist / traj_speed
    
