@@ -129,7 +129,7 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
             penalty_item = max(penalty_item, tmp_penalty)
             
 
-        penalties[qid] = penalty_item
+        penalties[qid] = 1 / penalty_item
 
     return dt * penalties
 
