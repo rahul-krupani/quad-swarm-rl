@@ -22,7 +22,6 @@ def add_quadrotors_env_args(env, parser):
                    help='obs space for quadrotor self')
     p.add_argument('--quads_obs_rel_rot', default=False, type=str2bool, help='use relative rotation or not')
     p.add_argument('--quads_dynamic_goal', default=True, type=str2bool, help='use relative observations for all states. Only for dynamic goal scenarios.')
-    p.add_argument('--quads_use_curriculum', default=False, type=str2bool, help='Use scenario curriculum or not')
     p.add_argument('--quads_episode_duration', default=15.0, type=float,
                    help='Override default value for episode duration')
     p.add_argument('--quads_encoder_type', default='corl', choices=['corl', 'attention'], type=str,

@@ -5,15 +5,17 @@ import copy
 from gym_art.quadrotor_multi.scenarios.obstacles.o_base import Scenario_o_base
 from gym_art.quadrotor_multi.quadrotor_traj_gen import QuadTrajGen
 from gym_art.quadrotor_multi.quadrotor_planner import traj_eval
+from sample_factory.envs.env_utils import TrainingInfoInterface
 
-
-class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
+class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInterface):
     """ This scenario implements a 13 dim goal that tracks a smooth polynomial trajectory. 
         Each goal point is evaluated through the polynomial generated per reset. The velocity increases
         per amount of training steps. """
         
     def __init__(self, quads_mode, envs, num_agents, room_dims):
         super().__init__(quads_mode, envs, num_agents, room_dims)
+        TrainingInfoInterface.__init__(self)
+        
         self.approch_goal_metric = 0.5
 
         self.goal_generator = [QuadTrajGen(poly_degree=7) for i in range(num_agents)]
@@ -42,8 +44,11 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         
         return
 
-    def reset(self, obst_map, cell_centers, training_steps): 
-  
+    def reset(self, obst_map, cell_centers): 
+        
+        approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
+
+        
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
         
@@ -53,13 +58,15 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
         
-        if (training_steps % 1e5 == 0) and (training_steps != 0):
-            print("Curriculum Velocity Mean: {} at Global Step: {}".format(self.vel_mean, training_steps))
+        print("Curriculum Velocity Mean: {} at Global Step: {}".format(self.vel_mean, approx_total_training_steps))
             
-        self.vel_mean = training_steps / 800e6
+        self.vel_mean = approx_total_training_steps / 800e6
 
         if (self.vel_mean > 0.8):
             self.vel_mean = 0.8
+            
+        if (self.vel_mean < 0.25):
+            self.vel_mean = 0.25
 
         for i in range(self.num_agents):
             self.start_point[i] = self.generate_pos_obst_map()

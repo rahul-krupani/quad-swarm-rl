@@ -18,10 +18,9 @@ from gym_art.quadrotor_multi.obstacles.obstacles import MultiObstacles
 from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSceneMulti
 from gym_art.quadrotor_multi.quadrotor_single import QuadrotorSingle
 from gym_art.quadrotor_multi.scenarios.mix import create_scenario
-from sample_factory.envs.env_utils import TrainingInfoInterface
 
 
-class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
+class QuadrotorEnvMulti(gym.Env):
     def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, obs_rel_rot, dynamic_goal,
                  # Neighbor
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
@@ -39,15 +38,12 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
-                                  
-                 # Scenario Curriculum
-                 use_curriculum,
                  
                  # Rendering
                  render_mode='human'
                  ):
         super().__init__()
-        TrainingInfoInterface.__init__(self)
+
 
         # Predefined Parameters
         self.num_agents = num_agents
@@ -231,7 +227,6 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
         self.apply_collision_force = True
         
         #Curriculum Metric
-        self.use_curriculum = use_curriculum
         self.distance_to_goal_metric = [[] for _ in range(len(self.envs))] #Tracks the distance to goal for last 10 episode_extra_stats
 
     def all_dynamics(self):
@@ -407,14 +402,7 @@ class QuadrotorEnvMulti(gym.Env, TrainingInfoInterface):
                 self.grid_size = np.round(tmp_grid_size, 1)
 
             self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
-            
-            # Scenario based curriculum
-            if (self.use_curriculum):
-                approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
-
-                self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, training_steps=approx_total_training_steps)
-            else:
-                self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
+            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
             
           
         else:
