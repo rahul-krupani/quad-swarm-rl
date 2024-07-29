@@ -107,9 +107,10 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
                                              quads_pos, quads_vel, obst_pos, dt):
     penalties = np.zeros(len(quads_pos))
     for qid in range(len(quads_pos)):
-        q_vel = quads_vel[qid]
-        q_speed = np.linalg.norm(q_vel)
-        penalty_item = 0.0
+        # q_vel = quads_vel[qid]
+        # q_speed = np.linalg.norm(q_vel)
+        # penalty_item = 0.0
+        min_dist = np.inf
         for oid in range(len(obst_pos)):
             rel_pos = obst_pos[oid] - quads_pos[qid]
             dist = np.linalg.norm(rel_pos)
@@ -124,15 +125,16 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
             # tmp_penalty = penalty_bool * penalty_coeff * (q_speed * cos_theta)
             # penalty_item = max(penalty_item, tmp_penalty)``
             
-            penalty_bool = float(dist <= penalty_range)
-            tmp_penalty = penalty_bool * penalty_coeff * dist
-            penalty_item = max(penalty_item, tmp_penalty)
+            min_dist = min(min_dist, dist)
             
-
-        penalties[qid] = 1 / penalty_item
+        penalty_bool = float(dist <= penalty_range)
+        penalty = penalty_bool * penalty_coeff * dist
+        if (penalty == 0):
+            penalties[qid] = 0
+        else:
+            penalties[qid] = 1 / penalty
 
     return dt * penalties
-
 
 def unit_test():
     penalties = calculate_drone_obst_proximity_penalties(
