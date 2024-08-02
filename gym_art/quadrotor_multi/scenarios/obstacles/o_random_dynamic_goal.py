@@ -20,7 +20,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.end_point = [np.zeros(3) for i in range(num_agents)]
         
         # The velocity of the trajectory is sampled from a normal distribution
-        self.vel_mean = 0.25
+        self.vel_mean = 0.35
         self.vel_std = 0.15
 
     def step(self):
@@ -66,6 +66,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             
             #Sample speed between 0.9 and 1.1 m/s
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
+
+            if (traj_speed < 0.15):
+                traj_speed = 0.15
+            if (traj_speed > 0.8):
+                traj_speed = 0.8
 
             traj_duration = dist / traj_speed
    
