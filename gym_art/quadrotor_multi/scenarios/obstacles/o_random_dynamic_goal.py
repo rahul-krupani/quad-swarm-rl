@@ -19,13 +19,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.start_point = [np.zeros(3) for i in range(num_agents)]
         self.end_point = [np.zeros(3) for i in range(num_agents)]
 
-        
-    def update_formation_size(self, new_formation_size):
-        pass
+        # The velocity of the trajectory is sampled from a normal distribution
+        self.vel_mean = 0.35
+        self.vel_std = 0.15
 
     def step(self):
-        self.update_formation_and_relate_param()
-
         tick = self.envs[0].tick
         
         time = self.envs[0].sim_steps*tick*(self.envs[0].dt) #  Current time in seconds.
@@ -34,12 +32,12 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             next_goal = self.goal_generator[i].piecewise_eval(time)
     
             self.end_point[i] = next_goal.as_nparray()
-            # print(time, self.end_point[i])
-            self.goals = copy.deepcopy(self.end_point)
+            
+        self.goals = copy.deepcopy(self.end_point)
             
         for i, env in enumerate(self.envs):
             env.goal = self.end_point[i]
-            
+        
         return
 
     def reset(self, obst_map, cell_centers): 
@@ -65,22 +63,32 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             final_goal[2] = 0.65
             
             dist = np.linalg.norm(self.start_point[i] - final_goal)
+            
+            #Sample speed between 0.9 and 1.1 m/s
+            traj_speed = np.random.normal(self.vel_mean, self.vel_std)
 
-            traj_duration = np.random.uniform(low=dist / 1.5, high=self.envs[0].ep_time-1)
+            if (traj_speed < 0.15):
+                traj_speed = 0.15
+            if (traj_speed > 0.8):
+                traj_speed = 0.8
 
-            goal_yaw = np.random.uniform(low=0, high=3.14/2)
+            traj_duration = dist / traj_speed
+   
+            goal_yaw = np.random.uniform(low=-3.14, high=3.14)
 
             # Generate trajectory with random time from (2, ep_time)
             self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 
                                                    duration=traj_duration, current_time=0)
+
+            #Find the initial goal
             self.end_point[i] = self.goal_generator[i].piecewise_eval(0).as_nparray()
 
-        self.update_formation_and_relate_param()
-
-        self.formation_center = np.array((0., 0., 2.))
         self.spawn_points = copy.deepcopy(self.start_point)
         
         self.goals = copy.deepcopy(self.end_point)
+
+        for i, env in enumerate(self.envs):
+            env.dynamic_goal = True
         
         
         

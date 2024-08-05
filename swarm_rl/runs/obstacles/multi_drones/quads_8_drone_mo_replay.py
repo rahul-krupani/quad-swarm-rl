@@ -5,7 +5,8 @@ _params = ParamGrid(
     [
         ("seed", [0000, 1111, 2222, 3333]),
         ("quads_obst_grid_size_random", [True]),
-        ("quads_obstacle_tof_resolution", [4, 8]),
+        ("quads_obstacle_tof_resolution", [4]),
+        ("replay_buffer_sample_prob", [0.75]),
     ]
 )
 
@@ -15,11 +16,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_neighbor_visible_num=2 --quads_neighbor_obs_type=pos --quads_neighbor_hidden_size=12 '
     '--quads_obst_hidden_size=12 --quads_obst_density=0.2 --quads_obstacle_obs_type=ToFs '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones '
-    '--wandb_group=md_mo_search_replay'
+    '--wandb_group=md_mo_random_grid_replay'
 )
 
 _experiment = Experiment(
-    "md_mo_search_replay",
+    "md_mo_random_grid_replay",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )

@@ -43,7 +43,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
     env = QuadrotorEnvMulti(
         num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration, rew_coeff=rew_coeff,
-        obs_repr=cfg.quads_obs_repr, obs_rel_rot=cfg.quads_obs_rel_rot,
+        obs_repr=cfg.quads_obs_repr, obs_rel_rot=cfg.quads_obs_rel_rot, dynamic_goal=False,
         # Neighbor
         neighbor_visible_num=cfg.quads_neighbor_visible_num, neighbor_obs_type=cfg.quads_neighbor_obs_type,
         collision_hitbox_radius=cfg.quads_collision_hitbox_radius,
@@ -52,7 +52,9 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
         obst_spawn_area=cfg.quads_obst_spawn_area, obst_obs_type=cfg.quads_obstacle_obs_type,
         obst_noise=cfg.quads_obst_noise, grid_size=quads_obst_grid_size,
-        obst_tof_resolution=cfg.quads_obstacle_tof_resolution,
+        obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
+        obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
+        obst_penalty_range=cfg.quads_obst_collision_smooth_penalty_range,
 
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash,
@@ -84,17 +86,21 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward
     reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = cfg.quads_collision_smooth_max_penalty
     reward_shaping['quad_rewards']['quadcol_bin_obst'] = cfg.quads_obst_collision_reward
+    reward_shaping['quad_rewards']['quadcol_bin_obst_smooth_max'] = cfg.quads_obst_collision_smooth_max_penalty
 
     # this is annealed by the reward shaping wrapper
     if cfg.anneal_collision_steps > 0:
         reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_obst'] = 0.0
+        reward_shaping['quad_rewards']['quadcol_bin_obst_smooth_max'] = cfg.quads_obst_collision_smooth_max_penalty
         annealing = [
             AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
             AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
                            cfg.anneal_collision_steps),
             AnnealSchedule('quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps),
+            AnnealSchedule('quadcol_bin_obst_smooth_max', cfg.quads_obst_collision_smooth_max_penalty,
+                           cfg.anneal_collision_steps),
         ]
     else:
         annealing = None
