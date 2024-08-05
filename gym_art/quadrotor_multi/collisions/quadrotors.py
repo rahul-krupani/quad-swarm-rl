@@ -105,7 +105,7 @@ def calculate_drone_proximity_penalties(distance_matrix, collision_falloff_thres
 
 def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, penalty_range,
                                              quads_pos, quads_vel, obst_pos, dt):
-    penalties = np.zeros(num_agents)
+    penalties = np.zeros(len(quads_pos))
     for qid in range(len(quads_pos)):
         min_dist = np.inf
         for oid in range(len(obst_pos)):
@@ -114,7 +114,7 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
             
             min_dist = min(min_dist, dist)
 
-        penalties[qid] = penalty_coeff * exp(-10*min_dist)
+        penalties[qid] = penalty_coeff * math.exp((-1*penalty_range)*(min_dist+r_obst+r_drone))
 
     return dt * penalties
 
