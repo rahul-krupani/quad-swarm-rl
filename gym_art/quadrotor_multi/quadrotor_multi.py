@@ -30,7 +30,7 @@ class QuadrotorEnvMulti(gym.Env):
                  obst_tof_resolution,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
-                 use_downwash, use_numba, quads_mode, room_dims, use_replay_buffer, quads_view_mode,
+                 use_downwash, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
 
                  # Quadrotor Specific (Do Not Change)
@@ -142,6 +142,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Scenarios
         self.quads_mode = quads_mode
+        self.sim2real_scenario = sim2real_scenario
         self.scenario = create_scenario(quads_mode=quads_mode, envs=self.envs, num_agents=num_agents,
                                         room_dims=room_dims)
 
@@ -377,7 +378,13 @@ class QuadrotorEnvMulti(gym.Env):
                                             obs_type=self.obst_obs_type, obst_noise=self.obst_noise,
                                             obst_tof_resolution=self.obst_tof_resolution)
             self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
-            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
+            if self.sim2real_scenario is not None:
+                self.obst_map = np.zeros_like(self.obst_map)
+                self.obst_map[7, 10] = 1.0
+                self.obst_map[5, 11] = 1.0
+                obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
+
+            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, sim2real_scenario=self.sim2real_scenario)
         else:
             self.scenario.reset()
 
