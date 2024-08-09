@@ -42,7 +42,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             
         return
 
-    def reset(self, obst_map, cell_centers): 
+    def reset(self, obst_map, cell_centers, sim2real_scenario=None):
   
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
@@ -50,16 +50,20 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         if obst_map is None:
             raise NotImplementedError
 
-        obst_map_locs = np.where(self.obstacle_map == 0)
-        self.free_space = list(zip(*obst_map_locs))
+        if sim2real_scenario is None:
+            obst_map_locs = np.where(self.obstacle_map == 0)
+            self.free_space = list(zip(*obst_map_locs))
 
         for i in range(self.num_agents):
-            self.start_point[i] = self.generate_pos_obst_map()
+            if sim2real_scenario is None:
+                self.start_point[i] = self.generate_pos_obst_map()
+                final_goal = self.generate_pos_obst_map()
+            else:
+                self.start_point[i] = np.array([-1.25, 0.25, 0.65])
+                final_goal = np.array([2.75, 0.25, 0.65])
             
             initial_state = traj_eval()
             initial_state.set_initial_pos(self.start_point[i])
-            
-            final_goal = self.generate_pos_obst_map()
             
             # Fix the goal height at 0.65 m
             final_goal[2] = 0.65
