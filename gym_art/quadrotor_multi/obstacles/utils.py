@@ -122,7 +122,7 @@ def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
                             quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
 
         quads_obs = quads_obs + np.random.normal(loc=0, scale=obst_noise, size=quads_obs.shape)
-        quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+        quads_obs = np.clip(quads_obs, a_min=0.0, a_max=2.0)
         return quads_obs
 
 @njit
@@ -147,8 +147,8 @@ def get_cell_centers(obst_area_length, obst_area_width, grid_size=1.):
     i_len = obst_area_length // grid_size
     j_len = obst_area_width // grid_size
     cell_centers = np.zeros((int(i_len * j_len), 2))
-    for i in np.arange(0, obst_area_length, grid_size):
-        for j in np.arange(obst_area_width - grid_size, -grid_size, -grid_size):
+    for i in np.arange(0, i_len * grid_size, grid_size):
+        for j in np.arange(j_len * grid_size - grid_size, -grid_size, -grid_size):
             cell_centers[count][0] = i + (grid_size / 2) - obst_area_length // 2
             cell_centers[count][1] = j + (grid_size / 2) - obst_area_width // 2
             count += 1

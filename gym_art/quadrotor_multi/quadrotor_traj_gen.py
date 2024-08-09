@@ -226,8 +226,6 @@ class QuadTrajGen:
 
         out.omega = np.array([roll_rate, pitch_rate, yaw_rate])
 
-        # self.stored_goal_points.append(out)
-
         return out    
 
 
@@ -240,43 +238,48 @@ if __name__ == "__main__":
 
         np.random.seed(3333)
 
-        def testEndPoint(self):
+        def test_end_points(self):
             sim_time = 15
             num_agents = 15
             ROOM_DIM = 10
 
-            # goal_generator = []
-            goal_generator = [QuadTrajGen(poly_degree=7) for i in range(num_agents)]
-            # start_point = []
-            start_point = [np.zeros(3) for i in range(num_agents)]
-            # end_point = []
-            end_point = [np.zeros(3) for i in range(num_agents)]
+            #Conduct test multiple times
+            for k in range(100):
+                # goal_generator = []
+                goal_generator = [QuadTrajGen(poly_degree=7) for i in range(num_agents)]
+                # start_point = []
+                start_point = [np.zeros(3) for i in range(num_agents)]
+                # end_point = []
+                end_point = [np.zeros(3) for i in range(num_agents)]
 
-            yaw = [0 for i in range(num_agents)]
+                yaw = [0 for i in range(num_agents)]
 
-            
-            for i in range(num_agents):
-                initial_state = traj_eval()
-                start_point[i] = (np.random.uniform(low=-ROOM_DIM, high=ROOM_DIM, size=(3,)))
-                initial_state.set_initial_pos(start_point[i])
-
-                end_point[i] = (np.random.uniform(low=-ROOM_DIM, high=ROOM_DIM, size=(3,)))
-                dist = np.linalg.norm(start_point[i] - end_point[i])
                 
-                traj_duration = np.random.uniform(low = dist, high=sim_time-2)
+                for i in range(num_agents):
+                    initial_state = traj_eval()
+                    start_point[i] = (np.random.uniform(low=-ROOM_DIM, high=ROOM_DIM, size=(3,)))
+                    initial_state.set_initial_pos(start_point[i])
 
-                yaw[i] = np.random.uniform(low=0, high=3.14)
-                goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(end_point[i], yaw[i]), 
-                                                    duration=traj_duration, current_time=0)
-             
-            for i in range(num_agents):
-                A = goal_generator[i].piecewise_eval(16).as_nparray()[0:3]
-                B = end_point[i]
+                    end_point[i] = (np.random.uniform(low=-ROOM_DIM, high=ROOM_DIM, size=(3,)))
+                    yaw[i] = np.random.uniform(low=-3.14, high=3.14)
 
-                self.assertTrue(np.linalg.norm(A-B) < 0.1, "End point positions do not match: {}, {}".format(A,B))
-
+                    end_point[i] = np.append(end_point[i], yaw[i])
+                    
+                    dist = np.linalg.norm(start_point[i][0:3] - end_point[i][0:3])
+                    
+                    traj_duration = np.random.uniform(low=dist/2, high=sim_time-2)
+                    
+                    goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=end_point[i], 
+                                                        duration=traj_duration, current_time=0)
+                
+                for i in range(num_agents):
+                    A = goal_generator[i].piecewise_eval(20).as_nparray()
+                    B = end_point[i]
+                    
+                    self.assertTrue(np.linalg.norm(A[0:3]-B[0:3]) < 0.1, "End point positions do not match: {}, {}".format(A[0:3],B[0:3]))
+                    self.assertTrue(abs(A[12] - B[3]) < 0.01, "End Point Yaws do not match: {}, {}".format(A[12], B[3]))
             
-        def testSameGoal(self):
+        def test_same_goal(self):
             sim_time = 15
 
             ROOM_DIM = 10
@@ -309,8 +312,8 @@ if __name__ == "__main__":
                     self.assertLess(np.linalg.norm(next_goal.pos), max_room_dist, "Failed Goal Position Boundary")
                     
                     t += 0.05
-        
-        def testRandomGoal(self):
+
+        def test_random_goal(self):
             sim_time = 15
 
             ROOM_DIM = 10
@@ -347,6 +350,7 @@ if __name__ == "__main__":
                 end_points.append(next_goal)
                 for j in range(3):
                         self.assertTrue(-ROOM_DIM <= next_goal[j] <= ROOM_DIM)
+
                 # Simulation Loop
                 t = 0
                 while (t < sim_time):
@@ -357,97 +361,98 @@ if __name__ == "__main__":
                         self.assertTrue(-ROOM_DIM <= next_goal[j] <= ROOM_DIM, "Failed Random Goal Test")
                     
                     t += 0.05
-
-        @unittest.skip("Do not visualize every unit test")
-        def Visualization(self):
-
-            """ Example use case for trajectory generation class."""
-
-            # Create trajectory generator class
-            traj_gen = QuadTrajGen(poly_degree=7)
-
-            # Begining time of episode in seconds
-            t = 0.0 
-            # Duration needed to complete trajectory in seconds
-            duration = 5.0
-
-            # # Create an instance goal point for the initial state. 
-            # initial_state = traj_eval()
-            # initial_state.set_initial_pos([1.25,-0.75,2.138])
-            # initial_state.set_initial_yaw(0)
-            
-            # #Desired FINAL goal point
-            # goal_state = [2.75, -2.25, 2.617, 0]
-
-            # Create an instance goal point for the initial state. 
-            initial_state = traj_eval()
-            initial_state.set_initial_pos([0.9,-3.2,0.2])
-            initial_state.set_initial_yaw(0)
-            
-            #Desired FINAL goal point
-            goal_state = [-1.2, -2.25, 2.617, 0]
-
-            print("Initial State:", initial_state)
-
-            total_traj = [initial_state]
-            traj_gen.plan_go_to_from(initial_state=initial_state, desired_state=goal_state, duration=duration, current_time=t)
-            
-            sim_time = 11
-            print("Initial Goal:", traj_gen.piecewise_eval(0.001))
-
-            # Get setpoint loops. This can be understood as the simulation steps.
-            while(t < sim_time):  
-
-                t += 0.005
-                # Evaluate the next goal point based on the current simulation time (in seconds).
-                next_goal = traj_gen.piecewise_eval(t)
-
-                # # We can also replan during the simulation. 
-                # # NOTE: THIS SHOULD ONLY BE CALLED AFTER THE PREVIOUS PLAN HAS FINISHED.
-                # if (traj_gen.plan_finished(t)):
-                #     traj_gen.plan_go_to_from(initial_state=next_goal, desired_state=[0, 0, 0.65, 0], duration=duration, current_time=t)
-                #     plan_stale = False
-
-            print("Final State: ", total_traj[-1])
-
-
-            fig, axs = plt.subplots(3)
-
-            x = []
-            y = []
-            z = []
-            vx = []
-            vy = []
-            vz = []
-
-            o_r = []
-            o_p = []
-            o_y = []
-            for point in traj_gen.get_trajectory():
-                x.append(point.pos[0])
-                y.append(point.pos[1])
-                z.append(point.pos[2])
-                vx.append(point.vel[0])
-                vy.append(point.vel[1])
-                vz.append(point.vel[2])
-                o_r.append(point.omega[0])
-                o_p.append(point.omega[1])
-                o_y.append(point.omega[2])
-            axs[0].plot(x, label="x")
-            axs[0].plot(y, label="y")
-            axs[0].plot(z, label="z")
-            axs[0].legend()
-            axs[1].plot(vx)
-            axs[1].plot(vy)
-            axs[1].plot(vz)
-
-            # axs[2].set_ylim(-3.14, 3.14)
-            axs[2].plot(o_r)
-            axs[2].plot(o_p)
-            axs[2].plot(o_y)
-
-            plt.show()
-            
-            # print(traj_gen.planner.planned_trajectory["pieces"][0])
         
-    unittest.main()
+    unittest.main(verbosity=2)
+
+    """ Example use case for trajectory generation class."""
+
+    # Create trajectory generator class
+    traj_gen = QuadTrajGen(poly_degree=7)
+
+    # Begining time of episode in seconds
+    t = 0.0 
+    # Duration needed to complete trajectory in seconds
+    duration = 5.0
+
+    # # Create an instance goal point for the initial state. 
+    # initial_state = traj_eval()
+    # initial_state.set_initial_pos([1.25,-0.75,2.138])
+    # initial_state.set_initial_yaw(0)
+    
+    # #Desired FINAL goal point
+    # goal_state = [2.75, -2.25, 2.617, 0]
+
+    # Create an instance goal point for the initial state. 
+    initial_state = traj_eval()
+    initial_state.set_initial_pos([0.9,-3.2,0.2])
+    initial_state.set_initial_yaw(3.14/2)
+    
+    #Desired FINAL goal point
+    goal_state = [-1.2, -2.25, 2.617, 0]
+
+    # print("Initial State:", initial_state)
+
+    total_traj = [initial_state]
+    traj_gen.plan_go_to_from(initial_state=initial_state, desired_state=goal_state, duration=duration, current_time=t)
+    
+    sim_time = 20
+    # print("Initial Goal:", traj_gen.piecewise_eval(0.001))
+
+    # Get setpoint loops. This can be understood as the simulation steps.
+    while(t < sim_time):  
+
+        t += 0.005
+        # Evaluate the next goal point based on the current simulation time (in seconds).
+        next_goal = traj_gen.piecewise_eval(t)
+
+        # # We can also replan during the simulation. 
+        # # NOTE: THIS SHOULD ONLY BE CALLED AFTER THE PREVIOUS PLAN HAS FINISHED.
+        if (traj_gen.plan_finished(t)):
+            traj_gen.plan_go_to_from(initial_state=next_goal, desired_state=[0, 0, 0.65, 0], duration=duration, current_time=t)
+            
+
+    print("Final State: ", total_traj[-1])
+
+
+    fig, axs = plt.subplots(3)
+
+    x = []
+    y = []
+    z = []
+    vx = []
+    vy = []
+    vz = []
+
+    o_r = []
+    o_p = []
+    o_y = []
+
+    yaw = []
+    for point in traj_gen.get_trajectory():
+        x.append(point.pos[0])
+        y.append(point.pos[1])
+        z.append(point.pos[2])
+        vx.append(point.vel[0])
+        vy.append(point.vel[1])
+        vz.append(point.vel[2])
+        o_r.append(point.omega[0])
+        o_p.append(point.omega[1])
+        o_y.append(point.omega[2])
+        yaw.append(point.yaw)
+    axs[0].plot(x, label="x")
+    axs[0].plot(y, label="y")
+    axs[0].plot(z, label="z")
+    axs[0].plot(yaw, label='yaw')
+    axs[0].legend()
+    axs[1].plot(vx)
+    axs[1].plot(vy)
+    axs[1].plot(vz)
+
+    # axs[2].set_ylim(-3.14, 3.14)
+    axs[2].plot(o_r)
+    axs[2].plot(o_p)
+    axs[2].plot(o_y)
+
+    plt.show()
+    
+    # print(traj_gen.planner.planned_trajectory["pieces"][0])

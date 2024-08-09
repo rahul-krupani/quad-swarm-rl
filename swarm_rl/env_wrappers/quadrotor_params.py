@@ -18,9 +18,10 @@ def add_quadrotors_env_args(env, parser):
     # Quadrotor features
     p.add_argument('--quads_num_agents', default=8, type=int, help='Override default value for the number of quadrotors')
     p.add_argument('--quads_obs_repr', default='xyz_vxyz_R_omega', type=str,
-                   choices=['xyz_vxyz_R_omega', 'xyz_vxyz_R_omega_floor', 'xyz_vxyz_R_omega_wall'],
+                   choices=['xyz_vxyz_R_omega', 'xyz_vxyz_R_omega_floor', 'xyz_vxyz_R_omega_wall', 'xyz_vxyz_yaw_omega'],
                    help='obs space for quadrotor self')
-    p.add_argument('--quads_obs_rel_rot', default=True, type=str2bool, help='use relative rotation or not')
+    p.add_argument('--quads_obs_rel_rot', default=False, type=str2bool, help='use relative rotation or not')
+    p.add_argument('--quads_dynamic_goal', default=True, type=str2bool, help='use relative observations for all states. Only for dynamic goal scenarios.')
     p.add_argument('--quads_episode_duration', default=15.0, type=float,
                    help='Override default value for episode duration')
     p.add_argument('--quads_encoder_type', default='corl', choices=['corl', 'attention'], type=str,
@@ -66,6 +67,13 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_grid_size', default=1.0, type=float, help='The grid size that obstacles are placed on')
     p.add_argument('--quads_obst_spawn_area', nargs='+', default=[8.0, 8.0], type=float,
                    help='The spawning area of obstacles')
+    p.add_argument('--quads_obst_spawn_center', default=True, type=str2bool,
+                   help='Spawn obstacles at the center of grids or not')
+    p.add_argument('--quads_obst_grid_size_random', default=False, type=str2bool,
+                   help='Spawn obstacle grid size randomly or not')
+    p.add_argument('--quads_obst_grid_size_range', nargs='+', default=[0.5, 0.8], type=float,
+                   help='Spawn range of grid size')
+
     p.add_argument('--quads_domain_random', default=False, type=str2bool, help='Use domain randomization or not')
     p.add_argument('--quads_obst_density_random', default=False, type=str2bool, help='Enable obstacle density randomization or not')
     p.add_argument('--quads_obst_density_min', default=0.05, type=float,
@@ -86,6 +94,11 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_collision_reward', default=0.0, type=float,
                    help='Override default value for quadcol_bin_obst reward, which means collisions between quadrotor '
                         'and obstacles')
+    p.add_argument('--quads_obst_collision_smooth_max_penalty', default=0.0, type=float,
+                   help='The upper bound of the collision function given distance among drones')
+    p.add_argument('--quads_obst_collision_smooth_penalty_range', default=0.0, type=float,
+                   help='The upper bound of the distance between obstacles and drones for smooth penalty to be applied')
+
 
     # Aerodynamics
     # # Downwash
@@ -100,7 +113,8 @@ def add_quadrotors_env_args(env, parser):
                             'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations',
                             'mix', 'o_uniform_same_goal_spawn', 'o_random',
                             'o_dynamic_diff_goal', 'o_dynamic_same_goal', 'o_diagonal', 'o_static_same_goal',
-                            'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'sim2real_A', 'sim2real_B'],
+                            'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'o_random_dynamic_goal',
+                            'o_random_dynamic_goal_curriculum', 'sim2real_A', 'sim2real_B'],
                    help='Choose which scenario to run. ep = evader pursuit')
 
     # Room

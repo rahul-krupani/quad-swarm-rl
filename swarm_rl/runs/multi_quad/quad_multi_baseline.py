@@ -7,9 +7,9 @@ MULTI_QUAD_BASELINE_CLI = (
     '--with_pbt=False --normalize_input=False --normalize_returns=False --reward_clip=10 '
     # Quad specific
     '--quads_num_agents=8 --quads_use_numba=True --save_milestones_sec=15000 --anneal_collision_steps=0 '
-    '--quads_encoder_type=corl --replay_buffer_sample_prob=0.75 '
+    '--quads_encoder_type=corl --replay_buffer_sample_prob=0.0 '
     # Scenarios
-    '--quads_mode=mix --quads_episode_duration=15.0 --quads_use_downwash=True --quads_room_dims 10.0 10.0 10.0 '
+    '--quads_mode=mix --quads_episode_duration=15.0 --quads_use_downwash=True --quads_room_dims 10.0 10.0 5.0 '
     # Self
     '--quads_obs_repr=xyz_vxyz_R_omega '
     # Neighbor

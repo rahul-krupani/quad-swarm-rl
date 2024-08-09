@@ -34,9 +34,9 @@ GRAV = 9.81  # default gravitational constant
 
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False,
-                            obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False):
+                            obs_rel_rot=False, base_rot=np.eye(3)):
     # Distance to the goal
-    dist = np.linalg.norm(goal[:3] - dynamics.pos)
+    dist = np.linalg.norm(goal - dynamics.pos)
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
 
@@ -45,90 +45,52 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_effort = rew_coeff["effort"] * cost_effort_raw
 
     # Loss orientation
-    if obs_rel_rot or dynamic_goal:
+    if obs_rel_rot:
         if on_floor:
             cost_orient_raw = 3.0
         else:
-            if dynamic_goal:
-                tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
-                rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
+            tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
+            tmp_base_rot = scipy_rotation.from_matrix(base_rot)
 
-                # Dynamic goal only contains relative yaw information
-                rel_yaw = abs(rot_yaw - goal[12])
+            # Extract the roll, pitch, and yaw angles
+            rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
+            base_yaw, base_pitch, base_roll = tmp_base_rot.as_euler('zxy', degrees=False)
 
-                cost_orient_raw = rel_yaw
-            else:
-                tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
-                tmp_base_rot = scipy_rotation.from_matrix(base_rot)
+            rel_yaw, rel_pitch, rel_roll = abs(rot_yaw - base_yaw), abs(rot_pitch - base_pitch), abs(rot_roll - base_roll)
+            rel_yaw, rel_pitch, rel_roll = rel_yaw / np.pi, rel_pitch / np.pi, rel_roll / np.pi
 
-                # Extract the roll, pitch, and yaw angles
-                rot_yaw, rot_pitch, rot_roll = tmp_rot.as_euler('zxy', degrees=False)
-                base_yaw, base_pitch, base_roll = tmp_base_rot.as_euler('zxy', degrees=False)
-
-                rel_yaw, rel_pitch, rel_roll = abs(rot_yaw - base_yaw), abs(rot_pitch - base_pitch), abs(
-                    rot_roll - base_roll)
-                rel_yaw, rel_pitch, rel_roll = rel_yaw / np.pi, rel_pitch / np.pi, rel_roll / np.pi
-
-                cost_orient_raw = rel_yaw + rel_pitch + rel_roll
+            cost_orient_raw = rel_yaw + rel_pitch + rel_roll
     else:
         if on_floor:
             cost_orient_raw = 1.0
         else:
             cost_orient_raw = -dynamics.rot[2, 2]
+
     cost_orient = rew_coeff["orient"] * cost_orient_raw
 
     # Loss for constant uncontrolled rotation around vertical axis
     cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
     cost_spin = rew_coeff["spin"] * cost_spin_raw
 
-    if dynamic_goal:
-        # Goal is given as omega in roll, pitch, yaw axis
-        cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1] - goal[10]) + abs(
-            dynamics.omega[2] - goal[11])
-        cost_omega = rew_coeff["omega"] * cost_omega_raw
-    else:
-        cost_omega = 0
-
-    if dynamic_goal:
-        cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
-        cost_vel = rew_coeff["vel"] * cost_vel_raw
-    else:
-        cost_vel = 0
-
     # Loss crash for staying on the floor
     cost_crash_raw = float(on_floor)
     cost_crash = rew_coeff["crash"] * cost_crash_raw
 
-    # Penalize for too low height
-    abs_z = dynamics.pos[2]
-    if abs_z > 0.2:
-        cost_low_height_raw = 0.0
-        cost_low_height = 0.0
-    else:
-        cost_low_height_raw = 0.4 - 2 * abs_z
-        cost_low_height = 1.0 * cost_low_height_raw
-
     reward = -dt * np.sum([
         cost_pos,
-        cost_vel,
-        cost_omega,
         cost_effort,
         cost_crash,
         cost_orient,
         cost_spin,
-        cost_low_height,
     ])
 
     rew_info = {
         "rew_main": -cost_pos,
         'rew_pos': -cost_pos,
-        'rew_vel': -cost_vel,
-        'rew_omega': -cost_omega,
         'rew_action': -cost_effort,
         'rew_crash': -cost_crash,
         "rew_orient": -cost_orient,
         "rew_spin": -cost_spin,
-        "rew_lowh": -cost_low_height,
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
@@ -136,10 +98,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
         "rewraw_spin": -cost_spin_raw,
-        "rewraw_lowh": -cost_low_height_raw,
     }
 
-    print(rew_info)
     for k, v in rew_info.items():
         rew_info[k] = dt * v
 
@@ -162,7 +122,7 @@ class QuadrotorSingle:
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
                  neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False):
+                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4):
         np.seterr(under='ignore')
         """
         Args:
@@ -172,13 +132,13 @@ class QuadrotorSingle:
                 One can randomize dynamics during the end of any episode using resample_dynamics()
                 WARNING: randomization during an episode is not supported yet. Randomize ONLY before calling reset().
             dynamics_change: [dict] update to dynamics parameters relative to dynamics_params provided
-
+            
             dynamics_randomize_every: [int] how often (trajectories) perform randomization dynamics_sampler_1: [dict] 
             the first sampler to be applied. Dict must contain type (see quadrotor_randomization) and whatever params 
             requires 
             dynamics_sampler_2: [dict] the second sampler to be applied. Convenient if you need to 
                 fix some params after sampling.
-
+            
             raw_control: [bool] use raw control or the Mellinger controller as a default
             raw_control_zero_middle: [bool] meaning that control will be [-1 .. 1] rather than [0 .. 1]
             dim_mode: [str] Dimensionality of the env. 
@@ -199,7 +159,6 @@ class QuadrotorSingle:
         # Numba Speed Up
         self.use_numba = use_numba
         self.obs_rel_rot = obs_rel_rot
-        self.dynamic_goal = dynamic_goal
         self.base_rot = np.eye(3)
 
         # Room
@@ -272,6 +231,7 @@ class QuadrotorSingle:
         # Updating dynamics
         self.action_space = None
         self.resample_dynamics()
+
         # Self info
         self.state_vector = self.state_vector = getattr(get_state, "state_" + self.obs_repr)
         if use_obstacles:
@@ -423,7 +383,7 @@ class QuadrotorSingle:
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
             rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
-            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
+            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot)
 
         self.tick += 1
         done = self.tick > self.ep_len
@@ -435,7 +395,7 @@ class QuadrotorSingle:
     def resample_dynamics(self):
         """
         Allows manual dynamics resampling when needed.
-        WARNING:
+        WARNING: 
             - Randomization dyring an episode is not supported
             - MUST call reset() after this function
         """
@@ -474,8 +434,8 @@ class QuadrotorSingle:
         elif self.dim_mode == '2D':
             y = self.goal[1]
         # Since being near the groud means crash we have to start above
-        if z < 0.5:
-            z = 0.5
+        if z < 0.75:
+            z = 0.75
         pos = npa(x, y, z)
 
         # INIT STATE
